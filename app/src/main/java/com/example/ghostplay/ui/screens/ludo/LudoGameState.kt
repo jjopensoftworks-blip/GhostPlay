@@ -45,7 +45,8 @@ data class LudoBoardState(
     val diceValue: Int? = null,
     val diceRolled: Boolean = false,
     val winningPlayers: List<LudoColor> = emptyList(),
-    val logs: List<String> = listOf("INITIALIZING_CYBERPULSE_LUDO")
+    val logs: List<String> = listOf("INITIALIZING_CYBERPULSE_LUDO"),
+    val emojis: List<Pair<String, String>> = emptyList() // PlayerId to Emoji
 ) {
     companion object {
         fun initialTokens(): List<LudoToken> {
@@ -67,7 +68,11 @@ data class LudoLobby(
     val hostId: String = "",
     val players: List<LudoPlayer> = emptyList(),
     val boardState: LudoBoardState = LudoBoardState(),
-    val lastUpdateTime: Long = System.currentTimeMillis()
+    val lastUpdateTime: Long = System.currentTimeMillis(),
+    val startTime: Long? = null,
+    val endTime: Long? = null,
+    val firstWinner: LudoColor? = null,
+    val secondWinner: LudoColor? = null
 )
 
 object LudoCoordinates {
