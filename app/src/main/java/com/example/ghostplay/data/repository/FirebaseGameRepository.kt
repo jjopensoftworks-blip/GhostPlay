@@ -2,20 +2,24 @@ package com.example.ghostplay.data.repository
 
 import android.util.Log
 import com.example.ghostplay.data.model.Game
+import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.tasks.await
 
 class FirebaseGameRepository : GameRepository {
 
     private val firestore: FirebaseFirestore? by lazy {
         try {
-            FirebaseFirestore.getInstance()
+            // Check if any Firebase app is initialized before getting instance
+            if (FirebaseApp.getApps(com.google.firebase.FirebaseApp.getInstance().applicationContext).isNotEmpty()) {
+                 FirebaseFirestore.getInstance()
+            } else null
         } catch (e: Exception) {
-            Log.e("GhostPlay", "Firestore not initialized", e)
+            // This catches the IllegalStateException from getInstance() if not initialized
+            Log.e("GhostPlay", "Firestore not available: ${e.message}")
             null
         }
     }
