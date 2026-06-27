@@ -1,8 +1,11 @@
 package com.example.ghostplay.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -11,12 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ghostplay.data.model.Session
+import com.example.ghostplay.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,14 +43,16 @@ fun GameDetailsScreen(
     val totalPlaytime by viewModel.totalPlaytime.collectAsState()
 
     Scaffold(
+        containerColor = Surface,
         topBar = {
             TopAppBar(
-                title = { Text(game?.name ?: "Loading...") },
+                title = { Text(text = game?.name?.uppercase() ?: "NODE_SYNCING...", style = MaterialTheme.typography.labelMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface)
             )
         }
     ) { padding ->
@@ -53,66 +60,76 @@ fun GameDetailsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+            // Main Stat Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(SurfaceContainer)
+                    .border(1.dp, Primary.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                    .padding(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = if (activeSessionId != null) "Sessão Ativa" else "Total de Jogo",
-                        style = MaterialTheme.typography.labelLarge
+                        text = if (activeSessionId != null) "PULSE_ACTIVE" else "CUMULATIVE_UPTIME",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (activeSessionId != null) Tertiary else OnSurfaceVariant
                     )
                     Text(
                         text = if (activeSessionId != null) formatDuration(elapsedTime) else formatDuration(totalPlaytime),
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 48.sp
-                        ),
-                        color = if (activeSessionId != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer
+                        style = MaterialTheme.typography.displayLarge,
+                        color = if (activeSessionId != null) Secondary else OnSurface
                     )
+                    
                     Spacer(modifier = Modifier.height(24.dp))
+                    
                     Button(
                         onClick = {
                             if (activeSessionId == null) viewModel.startTracking() else viewModel.stopTracking()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (activeSessionId != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                        )
+                            containerColor = if (activeSessionId != null) Error.copy(alpha = 0.2f) else Primary.copy(alpha = 0.2f),
+                            contentColor = if (activeSessionId != null) Error else Primary
+                        ),
+                        border = borderStroke(activeSessionId != null)
                     ) {
                         Icon(
                             imageVector = if (activeSessionId == null) Icons.Rounded.PlayArrow else Icons.Rounded.Stop,
                             contentDescription = null
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (activeSessionId == null) "Começar a Jogar" else "Parar de Jogar")
+                        Text(if (activeSessionId == null) "INITIATE_PULSE" else "TERMINATE_PULSE")
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Histórico de Sessões",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.align(Alignment.Start)
+                text = "HISTORICAL_LOGS",
+                style = MaterialTheme.typography.labelSmall,
+                color = OnSurfaceVariant,
+                modifier = Modifier.align(Alignment.Start),
+                letterSpacing = 1.sp
             )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(sessions.sortedByDescending { it.startTime }) { session ->
-                    SessionItem(session)
+                    SessionLogItem(session)
                 }
             }
         }
@@ -120,40 +137,42 @@ fun GameDetailsScreen(
 }
 
 @Composable
-fun SessionItem(session: Session) {
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+fun borderStroke(active: Boolean) = androidx.compose.foundation.BorderStroke(
+    1.dp, 
+    if (active) Error.copy(alpha = 0.5f) else Primary.copy(alpha = 0.5f)
+)
+
+@Composable
+fun SessionLogItem(session: Session) {
+    val dateFormat = remember { SimpleDateFormat("HH:mm // dd.MM.yy", Locale.getDefault()) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceContainerLow)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = dateFormat.format(Date(session.startTime)),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                if (session.endTime != null) {
-                    Text(
-                        text = "Até: ${dateFormat.format(Date(session.endTime))}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-            }
+        Column {
             Text(
-                text = formatDuration(session.duration),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                text = dateFormat.format(Date(session.startTime)),
+                style = MaterialTheme.typography.labelSmall,
+                color = OnSurface
+            )
+            Text(
+                text = "STABLE_CONNECTION",
+                style = MaterialTheme.typography.labelSmall,
+                color = OnSurfaceVariant.copy(alpha = 0.5f),
+                fontSize = 8.sp
             )
         }
+        Text(
+            text = formatDuration(session.duration),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Secondary,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

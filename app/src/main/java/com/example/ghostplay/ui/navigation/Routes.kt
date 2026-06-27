@@ -15,4 +15,10 @@ sealed interface Route : NavKey {
 
     @Serializable
     data class GameDetails(val gameId: String) : Route
+
+    @Serializable
+    data object Onboarding : Route
+
+    @Serializable
+    data class GamePlay(val gameType: String) : Route
 }

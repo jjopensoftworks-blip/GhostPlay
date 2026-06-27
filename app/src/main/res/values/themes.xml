@@ -1,4 +1,8 @@
 <resources>
-
-    <style name="Theme.GhostPlay" parent="Theme.MaterialComponents.Light" />
+    <!-- Base application theme. -->
+    <style name="Theme.CyberPulse" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0B1326</item>
+        <item name="android:statusBarColor">#0B1326</item>
+        <item name="android:navigationBarColor">#0B1326</item>
+    </style>
 </resources>

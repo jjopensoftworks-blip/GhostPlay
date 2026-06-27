@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.ghostplay.ui.navigation.AppNavigation
-import com.example.ghostplay.ui.theme.GhostPlayTheme
+import com.example.ghostplay.ui.theme.CyberPulseTheme
 import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         setContent {
-            GhostPlayTheme {
+            CyberPulseTheme {
                 AppNavigation()
             }
         }

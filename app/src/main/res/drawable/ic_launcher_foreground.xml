@@ -4,24 +4,24 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Ghost Body -->
+    <!-- Ghost Body with Neon Glow -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#DDB7FF"
         android:pathData="M35,55 A 19,19 0 0,1 73,55 L 73,80 L 66.7,74 L 60.3,80 L 54,74 L 47.7,80 L 41.3,74 L 35,80 Z" />
 
-    <!-- Eyes (Gaming D-pad style eyes - one plus, one circle) -->
+    <!-- Eyes (Gaming D-pad style eyes) -->
     <!-- Circle Eye -->
     <path
-        android:fillColor="#311B92"
+        android:fillColor="#0B1326"
         android:pathData="M59,52 a 3.5,3.5 0 1,1 7,0 a 3.5,3.5 0 1,1 -7,0" />
 
-    <!-- D-pad Eye (Simple Plus) -->
+    <!-- D-pad Eye (Plus) -->
     <path
-        android:fillColor="#311B92"
+        android:fillColor="#0B1326"
         android:pathData="M42,51 h 2 v -2 h 2 v 2 h 2 v 2 h -2 v 2 h -2 v -2 h -2 z" />
 
-    <!-- Play Button (Center-aligned on ghost's body) -->
+    <!-- Play Button (Cyan contrast) -->
     <path
-        android:fillColor="#311B92"
+        android:fillColor="#5DE6FF"
         android:pathData="M51,62 L 51,72 L 60,67 Z" />
 </vector>
