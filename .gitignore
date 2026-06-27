@@ -14,3 +14,9 @@ captures/
 google-services.json
 .agent/
 *.agent
+.dea/
+.idea_modules/
+*.ipr
+*.iws
+out/
+gen/

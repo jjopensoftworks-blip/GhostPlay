@@ -2,7 +2,6 @@ package com.example.ghostplay.data.repository
 
 import android.util.Log
 import com.example.ghostplay.data.model.Game
-import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -11,20 +10,26 @@ import kotlinx.coroutines.tasks.await
 
 class FirebaseGameRepository : GameRepository {
 
-    private val firestore: FirebaseFirestore? by lazy {
-        try {
-            // Check if any Firebase app is initialized before getting instance
-            if (FirebaseApp.getApps(com.google.firebase.FirebaseApp.getInstance().applicationContext).isNotEmpty()) {
-                 FirebaseFirestore.getInstance()
-            } else null
-        } catch (e: Exception) {
-            // This catches the IllegalStateException from getInstance() if not initialized
-            Log.e("GhostPlay", "Firestore not available: ${e.message}")
-            null
+    private var _firestore: FirebaseFirestore? = null
+    private var _initAttempted = false
+
+    private fun getFirestore(): FirebaseFirestore? {
+        if (_initAttempted) return _firestore
+        
+        synchronized(this) {
+            if (_initAttempted) return _firestore
+            try {
+                _firestore = FirebaseFirestore.getInstance()
+            } catch (e: Throwable) {
+                Log.e("GhostPlay", "Firestore initialization failed: ${e.message}")
+                _firestore = null
+            }
+            _initAttempted = true
         }
+        return _firestore
     }
 
-    private val gamesCollection get() = firestore?.collection("games")
+    private val gamesCollection get() = getFirestore()?.collection("games")
 
     override fun getGames(): Flow<List<Game>> = callbackFlow {
         val collection = gamesCollection ?: run {

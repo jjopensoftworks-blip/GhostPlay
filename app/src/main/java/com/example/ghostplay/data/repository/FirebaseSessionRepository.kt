@@ -10,16 +10,26 @@ import kotlinx.coroutines.tasks.await
 
 class FirebaseSessionRepository : SessionRepository {
 
-    private val firestore: FirebaseFirestore? by lazy {
-        try {
-            FirebaseFirestore.getInstance()
-        } catch (e: Exception) {
-            Log.e("GhostPlay", "Firestore not initialized", e)
-            null
+    private var _firestore: FirebaseFirestore? = null
+    private var _initAttempted = false
+
+    private fun getFirestore(): FirebaseFirestore? {
+        if (_initAttempted) return _firestore
+        
+        synchronized(this) {
+            if (_initAttempted) return _firestore
+            try {
+                _firestore = FirebaseFirestore.getInstance()
+            } catch (e: Throwable) {
+                Log.e("GhostPlay", "Firestore initialization failed: ${e.message}")
+                _firestore = null
+            }
+            _initAttempted = true
         }
+        return _firestore
     }
 
-    private val sessionsCollection get() = firestore?.collection("sessions")
+    private val sessionsCollection get() = getFirestore()?.collection("sessions")
 
     override fun getSessionsForGame(gameId: String): Flow<List<Session>> = callbackFlow {
         val collection = sessionsCollection ?: run {
