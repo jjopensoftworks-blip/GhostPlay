@@ -508,11 +508,15 @@ class LudoViewModel : ViewModel() {
 
         // Check if game is completely finished
         val isGameFinished = winningList.size >= (lobby.players.size - 1).coerceAtLeast(1)
-        val finalLobby = lobby.copy(
+        var finalLobby = lobby.copy(
             status = if (isGameFinished) "FINISHED" else "PLAYING",
             boardState = nextBoardState,
             lastUpdateTime = System.currentTimeMillis()
         )
+        
+        if (isGameFinished) {
+            finalLobby = endGameTracking(finalLobby, winningList)
+        }
 
         updateLobbyOnServer(finalLobby)
     }
