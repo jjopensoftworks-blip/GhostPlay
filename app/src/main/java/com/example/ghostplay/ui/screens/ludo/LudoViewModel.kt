@@ -30,6 +30,10 @@ class LudoViewModel : ViewModel() {
     private var firestore: FirebaseFirestore? = null
     private var lobbyListenerRegistration: ListenerRegistration? = null
     private var botJob: Job? = null
+    private var timerJob: Job? = null
+    
+    // Stats for rules
+    private var consecutiveSixes = 0
 
     init {
         // Attempt Firestore initialization
@@ -237,6 +241,17 @@ class LudoViewModel : ViewModel() {
         updateLobbyOnServer(updatedLobby)
     }
 
+    private fun startTurnTimer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            delay(20000) // 20 second turn timer
+            val lobby = _lobbyState.value
+            if (lobby != null && lobby.status == "PLAYING") {
+                passTurn(lobby)
+            }
+        }
+    }
+
     private fun listenToLobby(code: String) {
         lobbyListenerRegistration?.remove()
         val db = firestore ?: return
@@ -252,8 +267,15 @@ class LudoViewModel : ViewModel() {
                 if (snapshot != null && snapshot.exists()) {
                     val lobby = snapshot.toObject(LudoLobby::class.java)
                     if (lobby != null) {
+                        val oldPlayer = _lobbyState.value?.boardState?.currentPlayer
                         _lobbyState.value = lobby
                         
+                        // If turn changed, restart timer and reset 6s
+                        if (oldPlayer != lobby.boardState.currentPlayer) {
+                            consecutiveSixes = 0
+                            startTurnTimer()
+                        }
+
                         // Check if it is a bot's turn and handle bot play
                         checkAndRunBot()
                     }
@@ -287,7 +309,24 @@ class LudoViewModel : ViewModel() {
         if (isOnlineMode.value && board.currentPlayer != myPlayerColor.value) return
 
         val roll = Random.nextInt(1, 7)
-        val updatedLogs = board.logs + "${board.currentPlayer.name}_ROLLED_$roll"
+        val updatedLogs = board.logs.toMutableList()
+        updatedLogs.add("${board.currentPlayer.name}_ROLLED_$roll")
+
+        // Rule: 3 consecutive 6s skip turn
+        if (roll == 6) {
+            consecutiveSixes++
+            if (consecutiveSixes == 3) {
+                updatedLogs.add("[PENALTY] THREE_CONSECUTIVE_6S! TURN_SKIPPED.")
+                consecutiveSixes = 0
+                viewModelScope.launch {
+                    delay(1000)
+                    passTurn(lobby)
+                }
+                return
+            }
+        } else {
+            consecutiveSixes = 0
+        }
 
         val nextBoardState = board.copy(
             diceValue = roll,
