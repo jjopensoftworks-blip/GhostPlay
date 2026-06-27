@@ -1,7 +1,6 @@
 package com.example.ghostplay.ui.screens.ludo
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,10 +29,10 @@ import kotlin.math.sin
 // Map LudoColor to premium neon colors
 fun LudoColor.toNeonColor(): Color {
     return when (this) {
-        LudoColor.RED -> Color(0xFFFF2A7A)
-        LudoColor.GREEN -> Color(0xFF98DA27) // Tertiary neon green
-        LudoColor.YELLOW -> Color(0xFFFFD600)
-        LudoColor.BLUE -> Color(0xFF00E5FF)  // Secondary neon cyan
+        LudoColor.RED -> Color(0xFFFF2A7A)    // Pink
+        LudoColor.GREEN -> Color(0xFF00FF9D)  // Neon Green
+        LudoColor.YELLOW -> Color(0xFFFFE500) // Bright Yellow
+        LudoColor.BLUE -> Color(0xFF00E5FF)   // Cyan
     }
 }
 
@@ -45,6 +44,18 @@ fun LudoBoard3D(
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    
+    // Animation for board pulse
+    val infiniteTransition = rememberInfiniteTransition(label = "board_glow")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
 
     // Keep track of animated positions of tokens to make them hop
     // Key: "color_id", Value: animatable offset from their base/current spot
@@ -81,7 +92,7 @@ fun LudoBoard3D(
             .aspectRatio(1f)
             .graphicsLayer {
                 // 3D Isometric projection tilt
-                rotationX = 50f
+                rotationX = 45f
                 rotationZ = -45f
                 cameraDistance = 16f * density.density
             }
@@ -91,12 +102,12 @@ fun LudoBoard3D(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 12.dp) // creates depth layer
+                .offset(y = 16.dp, x = 4.dp) // creates depth layer
                 .clip(RoundedCornerShape(24.dp))
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.9f),
                             Color(0xFF060E20)
                         )
                     )
@@ -109,7 +120,7 @@ fun LudoBoard3D(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(24.dp))
-                .background(SurfaceContainerLowest)
+                .background(Color(0xFF0D1117))
                 .border(2.dp, Primary.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
                 .pointerInput(boardState) {
                     detectTapGestures { offset ->
@@ -157,8 +168,11 @@ fun LudoBoard3D(
 
             // 4. Draw Safe Zones (Stars)
             drawSafeZones(cellSize)
+            
+            // 5. Draw Center Dome
+            drawDome(cellSize, pulseAlpha)
 
-            // 5. Draw Glowing Cyber Token pegs
+            // 6. Draw Glowing Cyber Token pegs
             boardState.tokens.forEach { token ->
                 val key = "${token.color}_${token.id}"
                 val anim = tokenAnimations[key]
@@ -187,23 +201,17 @@ fun LudoBoard3D(
 
 // Draw basic grid backgrounds
 private fun DrawScope.drawLudoGrid(cellSize: Float) {
-    val gridPaint = Paint().apply {
-        color = OutlineVariant.copy(alpha = 0.4f)
-        style = PaintingStyle.Stroke
-        strokeWidth = 1.dp.toPx()
-    }
-
     for (i in 0..15) {
         // Vertical lines
         drawLine(
-            color = OutlineVariant.copy(alpha = 0.3f),
+            color = Color.White.copy(alpha = 0.05f),
             start = Offset(i * cellSize, 0f),
             end = Offset(i * cellSize, size.height),
             strokeWidth = 1.dp.toPx()
         )
         // Horizontal lines
         drawLine(
-            color = OutlineVariant.copy(alpha = 0.3f),
+            color = Color.White.copy(alpha = 0.05f),
             start = Offset(0f, i * cellSize),
             end = Offset(size.width, i * cellSize),
             strokeWidth = 1.dp.toPx()
@@ -223,22 +231,35 @@ private fun DrawScope.drawPlayerBase(color: LudoColor, cellSize: Float) {
 
     val x = colOffset * cellSize
     val y = rowOffset * cellSize
-    val size = 6 * cellSize
+    val baseSize = 6 * cellSize
 
     // Draw main base container (cyber-glassmorphic style)
     drawRect(
-        color = color.toNeonColor().copy(alpha = 0.05f),
+        brush = Brush.radialGradient(
+            colors = listOf(neon.copy(alpha = 0.15f), Color.Transparent),
+            center = Offset(x + baseSize/2, y + baseSize/2),
+            radius = baseSize * 0.7f
+        ),
         topLeft = Offset(x, y),
-        size = Size(size, size)
+        size = Size(baseSize, baseSize)
     )
 
     // Glowing Neon corners/borders
     drawRect(
-        color = neon.copy(alpha = 0.6f),
+        color = neon.copy(alpha = 0.4f),
         topLeft = Offset(x, y),
-        size = Size(size, size),
-        style = Stroke(width = 3.dp.toPx())
+        size = Size(baseSize, baseSize),
+        style = Stroke(width = 2.dp.toPx())
     )
+    
+    // Corner accents
+    val accentLen = cellSize
+    // Top-Left
+    drawLine(neon, Offset(x, y), Offset(x + accentLen, y), strokeWidth = 4.dp.toPx())
+    drawLine(neon, Offset(x, y), Offset(x, y + accentLen), strokeWidth = 4.dp.toPx())
+    // Bottom-Right
+    drawLine(neon, Offset(x + baseSize, y + baseSize), Offset(x + baseSize - accentLen, y + baseSize), strokeWidth = 4.dp.toPx())
+    drawLine(neon, Offset(x + baseSize, y + baseSize), Offset(x + baseSize, y + baseSize - accentLen), strokeWidth = 4.dp.toPx())
 
     // Draw inner home circles / target nests for 4 tokens
     val baseCoords = LudoCoordinates.BASES[color]!!
@@ -254,10 +275,15 @@ private fun DrawScope.drawPlayerBase(color: LudoColor, cellSize: Float) {
         )
         // Glowing target ring
         drawCircle(
-            color = neon.copy(alpha = 0.4f),
+            color = neon.copy(alpha = 0.3f),
             center = Offset(cx, cy),
-            radius = cellSize * 0.3f,
-            style = Stroke(width = 2.dp.toPx())
+            radius = cellSize * 0.35f,
+            style = Stroke(width = 1.dp.toPx())
+        )
+        drawCircle(
+            color = neon,
+            center = Offset(cx, cy),
+            radius = cellSize * 0.15f
         )
     }
 }
@@ -270,70 +296,70 @@ private fun DrawScope.drawHomeAreas(cellSize: Float) {
         val cells = LudoCoordinates.HOME_STRETCHES[color]!!
         cells.forEach { cell ->
             drawRect(
-                color = neon.copy(alpha = 0.25f),
-                topLeft = Offset(cell.col * cellSize, cell.row * cellSize),
-                size = Size(cellSize, cellSize)
-            )
-            drawRect(
-                color = neon.copy(alpha = 0.6f),
-                topLeft = Offset(cell.col * cellSize, cell.row * cellSize),
-                size = Size(cellSize, cellSize),
-                style = Stroke(width = 1.dp.toPx())
+                color = neon.copy(alpha = 0.2f),
+                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
+                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx())
             )
         }
 
         // Color starting cell
         val startCell = LudoCoordinates.TRACK[LudoCoordinates.START_INDEXES[color]!!]
         drawRect(
-            color = neon.copy(alpha = 0.3f),
+            color = neon.copy(alpha = 0.6f),
             topLeft = Offset(startCell.col * cellSize, startCell.row * cellSize),
             size = Size(cellSize, cellSize)
         )
     }
 
-    // 2. Draw Center home triangles meeting at (7.5, 7.5)
+    // 2. Draw Center home area
     val cx = 7.5f * cellSize
     val cy = 7.5f * cellSize
 
-    // RED (bottom)
-    val redPath = Path().apply {
-        moveTo(6f * cellSize, 9f * cellSize)
-        lineTo(9f * cellSize, 9f * cellSize)
-        lineTo(cx, cy)
-        close()
-    }
-    drawPath(redPath, LudoColor.RED.toNeonColor().copy(alpha = 0.3f))
-    drawPath(redPath, LudoColor.RED.toNeonColor(), style = Stroke(width = 2.dp.toPx()))
+    // Center background
+    drawRect(
+        color = Color(0xFF1A1F26),
+        topLeft = Offset(6 * cellSize, 6 * cellSize),
+        size = Size(3 * cellSize, 3 * cellSize)
+    )
+}
 
-    // GREEN (left)
-    val greenPath = Path().apply {
-        moveTo(6f * cellSize, 6f * cellSize)
-        lineTo(6f * cellSize, 9f * cellSize)
-        lineTo(cx, cy)
-        close()
-    }
-    drawPath(greenPath, LudoColor.GREEN.toNeonColor().copy(alpha = 0.3f))
-    drawPath(greenPath, LudoColor.GREEN.toNeonColor(), style = Stroke(width = 2.dp.toPx()))
+private fun DrawScope.drawDome(cellSize: Float, pulseAlpha: Float) {
+    val cx = 7.5f * cellSize
+    val cy = 7.5f * cellSize
+    val radius = 1.2f * cellSize
 
-    // YELLOW (top)
-    val yellowPath = Path().apply {
-        moveTo(6f * cellSize, 6f * cellSize)
-        lineTo(9f * cellSize, 6f * cellSize)
-        lineTo(cx, cy)
-        close()
-    }
-    drawPath(yellowPath, LudoColor.YELLOW.toNeonColor().copy(alpha = 0.3f))
-    drawPath(yellowPath, LudoColor.YELLOW.toNeonColor(), style = Stroke(width = 2.dp.toPx()))
+    // Dome shadow
+    drawCircle(
+        color = Color.Black.copy(alpha = 0.5f),
+        center = Offset(cx, cy + 4.dp.toPx()),
+        radius = radius
+    )
 
-    // BLUE (right)
-    val bluePath = Path().apply {
-        moveTo(9f * cellSize, 6f * cellSize)
-        lineTo(9f * cellSize, 9f * cellSize)
-        lineTo(cx, cy)
-        close()
-    }
-    drawPath(bluePath, LudoColor.BLUE.toNeonColor().copy(alpha = 0.3f))
-    drawPath(bluePath, LudoColor.BLUE.toNeonColor(), style = Stroke(width = 2.dp.toPx()))
+    // Dome glass
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Primary.copy(alpha = 0.4f), Color(0xFF00E5FF).copy(alpha = 0.1f)),
+            center = Offset(cx - radius/3, cy - radius/3),
+            radius = radius
+        ),
+        center = Offset(cx, cy),
+        radius = radius
+    )
+    
+    // Dome border
+    drawCircle(
+        color = Color.White.copy(alpha = 0.4f),
+        center = Offset(cx, cy),
+        radius = radius,
+        style = Stroke(width = 1.dp.toPx())
+    )
+    
+    // Inner pulse
+    drawCircle(
+        color = Primary.copy(alpha = pulseAlpha),
+        center = Offset(cx, cy),
+        radius = radius * 0.8f
+    )
 }
 
 // Draw star markings on safe zones
@@ -344,20 +370,20 @@ private fun DrawScope.drawSafeZones(cellSize: Float) {
         val cy = cell.row * cellSize + cellSize / 2f
 
         // Draw a glowing diamond/star in safe cells
-        val size = cellSize * 0.4f
+        val starSize = cellSize * 0.3f
         val path = Path().apply {
-            moveTo(cx, cy - size)
-            lineTo(cx + size * 0.4f, cy - size * 0.4f)
-            lineTo(cx + size, cy)
-            lineTo(cx + size * 0.4f, cy + size * 0.4f)
-            lineTo(cx, cy + size)
-            lineTo(cx - size * 0.4f, cy + size * 0.4f)
-            lineTo(cx - size, cy)
-            lineTo(cx - size * 0.4f, cy - size * 0.4f)
+            moveTo(cx, cy - starSize)
+            lineTo(cx + starSize * 0.3f, cy - starSize * 0.3f)
+            lineTo(cx + starSize, cy)
+            lineTo(cx + starSize * 0.3f, cy + starSize * 0.3f)
+            lineTo(cx, cy + starSize)
+            lineTo(cx - starSize * 0.3f, cy + starSize * 0.3f)
+            lineTo(cx - starSize, cy)
+            lineTo(cx - starSize * 0.3f, cy - starSize * 0.3f)
             close()
         }
-        drawPath(path, Secondary.copy(alpha = 0.8f))
-        drawPath(path, Secondary, style = Stroke(width = 1.5.dp.toPx()))
+        drawPath(path, Color(0xFF00E5FF).copy(alpha = 0.6f))
+        drawPath(path, Color(0xFF00E5FF), style = Stroke(width = 1.dp.toPx()))
     }
 }
 

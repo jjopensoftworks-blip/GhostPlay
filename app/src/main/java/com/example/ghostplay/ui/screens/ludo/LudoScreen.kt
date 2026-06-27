@@ -2,6 +2,7 @@ package com.example.ghostplay.ui.screens.ludo
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,9 +19,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -520,9 +523,9 @@ fun LudoGameplayView(
         if (board.diceRolled && board.diceValue != null && !isDiceRolling) {
             isDiceRolling = true
             // Run rapid flicker animation
-            for (i in 0..8) {
+            for (i in 0..12) {
                 displayedRollNumber = Random.nextInt(1, 7)
-                delay(80)
+                delay(60)
             }
             displayedRollNumber = board.diceValue
             isDiceRolling = false
@@ -530,36 +533,89 @@ fun LudoGameplayView(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().background(Color(0xFF060E20))
     ) {
-        TopAppBar(
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(Secondary))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("MEGA-LUDO_V1", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = if (viewModel.isOnlineMode.value) "CLOUD_SYNCED" else "OFFLINE_SIM",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = OnSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "TERMINATE")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-        )
+        // 1. Header (GHOSTPLAY)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.Casino,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "GHOSTPLAY",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+            }
+            
+            // Profile / Settings icon placeholder
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(SurfaceContainerLow)
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(20.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.White)
+            }
+        }
 
-        // 1. The 3D Render Canvas Viewport
+        // 2. Status Row (Latency & Turn)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.3f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF00FF9D)))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("12ms", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+            }
+
+            val activeColor = board.currentPlayer.toNeonColor()
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(activeColor.copy(alpha = 0.15f))
+                    .border(1.dp, activeColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "${board.currentPlayer.name}'S TURN".uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = activeColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // 3. The 3D Render Canvas Viewport
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             LudoBoard3D(
@@ -570,138 +626,92 @@ fun LudoGameplayView(
                     }
                 }
             )
+            
+            // Dice Overlay (Floating above board)
+            if (board.diceRolled || isDiceRolling) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = (-40).dp)
+                ) {
+                    LudoDiceView(
+                        number = displayedRollNumber,
+                        isRolling = isDiceRolling,
+                        color = board.currentPlayer.toNeonColor()
+                    )
+                }
+            }
         }
 
-        // 2. Control HUD Dashboard
-        Row(
+        // 4. Control HUD Dashboard
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .height(130.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Left HUD Section: Active Player Profile & Dice
-            val activeColor = board.currentPlayer.toNeonColor()
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceContainerLow)
-                    .border(1.dp, activeColor.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Turn Indicator
-                Text(
-                    text = "ACTIVE_TURN: ${board.currentPlayer.name}",
-                    color = activeColor,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Dice / Roll Controller
-                if (!board.diceRolled) {
-                    if (isMyTurn) {
-                        Button(
-                            onClick = { viewModel.rollDice() },
-                            colors = ButtonDefaults.buttonColors(containerColor = activeColor.copy(alpha = 0.2f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .border(1.dp, activeColor, RoundedCornerShape(8.dp)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("ROLL_DICE", color = activeColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    } else {
-                        // Enemy player rolling
-                        Text(
-                            text = "WAITING_FOR_ROLL...",
-                            color = OnSurfaceVariant.copy(alpha = 0.5f),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                    }
-                } else {
-                    // Rolled Dice indicator
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(activeColor.copy(alpha = 0.1f))
-                            .border(1.dp, activeColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                    ) {
-                        Icon(
-                            Icons.Rounded.Casino,
-                            contentDescription = null,
-                            tint = activeColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "VALUE: $displayedRollNumber",
-                            color = activeColor,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-
-                // Subtitle
-                Text(
-                    text = if (isMyTurn) "YOUR_ACTION_REQUIRED" else "AWAITING_SIGNAL",
-                    color = if (isMyTurn) Secondary else OnSurfaceVariant.copy(alpha = 0.4f),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 8.sp
-                )
-            }
-
-            // Right HUD Section: Console Log Feed
-            val logListState = rememberLazyListState()
-            
-            // Auto scroll console to bottom on new log
-            LaunchedEffect(board.logs.size) {
-                if (board.logs.isNotEmpty()) {
-                    logListState.animateScrollToItem(board.logs.size - 1)
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1.2f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceContainerLowest)
-                    .border(1.dp, OutlineVariant.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                    .padding(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(4.dp).background(Tertiary))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("SYSTEM_LOG_FEED", style = MaterialTheme.typography.labelSmall, color = Tertiary, fontSize = 8.sp)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(
-                    state = logListState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+            // ROLL Button
+            if (!board.diceRolled && isMyTurn) {
+                Button(
+                    onClick = { viewModel.rollDice() },
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(64.dp)
+                        .graphicsLayer { shadowElevation = 12f },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF).copy(alpha = 0.2f)),
+                    shape = RoundedCornerShape(32.dp),
+                    border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF00E5FF), Color(0xFF00FF9D))))
                 ) {
-                    items(board.logs) { log ->
-                        Text(
-                            text = "> $log",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 9.sp,
-                            color = if (log.contains("VICTORY") || log.contains("CAPTURE")) Secondary else OnSurfaceVariant
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Casino, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("ROLL", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
                     }
                 }
+            } else {
+                // Status Text
+                val statusText = if (isMyTurn) "SELECT A TOKEN TO MOVE" else "WAITING FOR ${board.currentPlayer.name}"
+                Text(
+                    text = statusText.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Bottom Stats / Nav Bar Mockup
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomNavItem(Icons.Rounded.Gamepad, "Play", isSelected = true)
+                BottomNavItem(Icons.Rounded.Group, "Invites")
+                BottomNavItem(Icons.Rounded.History, "History")
+                BottomNavItem(Icons.Rounded.VerifiedUser, "Safety")
             }
         }
+    }
+}
+
+@Composable
+fun BottomNavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, isSelected: Boolean = false) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(8.dp)
+            .alpha(if (isSelected) 1f else 0.5f)
+    ) {
+        Icon(icon, contentDescription = null, tint = if (isSelected) Color(0xFF00E5FF) else Color.White, modifier = Modifier.size(20.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White, fontSize = 10.sp)
     }
 }
 

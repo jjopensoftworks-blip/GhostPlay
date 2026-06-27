@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "499636958550",
+    "project_id": "ghostplay-140e2",
+    "storage_bucket": "ghostplay-140e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:499636958550:android:e1922c9087b09d908a52f7",
+        "android_client_info": {
+          "package_name": "com.example.ghostplay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDULjE1_zGtM-i3c2er-_6FHKvl_ouDpW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
