@@ -5,8 +5,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.LibraryBooks
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +37,7 @@ fun AppNavigation() {
                     backStack.clear()
                     backStack.add(Route.Library)
                 },
-                icon = { Icon(Icons.Rounded.LibraryBooks, contentDescription = "Library") },
+                icon = { Icon(Icons.AutoMirrored.Rounded.LibraryBooks, contentDescription = "Library") },
                 label = { Text("Library") }
             )
             item(
