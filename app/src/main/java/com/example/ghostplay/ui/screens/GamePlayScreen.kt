@@ -70,7 +70,7 @@ fun GamePlayScreen(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = if (gameType == "CHESS") "NEO-CHESS_BETA" else "MEGA-LUDO_V1",
+                            text = if (gameType == "CHESS") "NEO-CHESS_BETA" else "GhostPlay",
                             style = MaterialTheme.typography.labelMedium,
                             letterSpacing = 2.sp
                         )

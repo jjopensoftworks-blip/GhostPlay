@@ -120,7 +120,7 @@ fun LudoSetupView(
             .padding(24.dp)
     ) {
         TopAppBar(
-            title = { Text("LUDO_NODE_SETUP", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp) },
+            title = { Text("GhostPlay Setup", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "BACK")
@@ -349,7 +349,7 @@ fun LudoOnlineLobbyView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TopAppBar(
-            title = { Text("MULTIPLAYER_NODE_LOBBY", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp) },
+            title = { Text("GhostPlay Lobby", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp) },
             navigationIcon = {
                 IconButton(onClick = onLeave) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "LEAVE")
@@ -613,9 +613,9 @@ fun LudoGameplayView(
         // 3. The 3D Render Canvas Viewport
         Box(
             modifier = Modifier
-                .weight(1f)
+                .weight(1.2f) // Give board more weight
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(horizontal = 4.dp), // Minimal padding for maximum width
             contentAlignment = Alignment.Center
         ) {
             LudoBoard3D(
@@ -627,17 +627,18 @@ fun LudoGameplayView(
                 }
             )
             
-            // Dice Overlay (Floating above board)
+            // Dice Overlay (Floating above board - shifted to side so not blocking center)
             if (board.diceRolled || isDiceRolling) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .offset(y = (-40).dp)
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp)
                 ) {
                     LudoDiceView(
                         number = displayedRollNumber,
                         isRolling = isDiceRolling,
-                        color = board.currentPlayer.toNeonColor()
+                        color = board.currentPlayer.toNeonColor(),
+                        size = 70.dp // Slightly larger dice
                     )
                 }
             }

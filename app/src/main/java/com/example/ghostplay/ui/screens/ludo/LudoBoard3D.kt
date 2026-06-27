@@ -89,12 +89,12 @@ fun LudoBoard3D(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(0.9f) // Allow slightly more vertical room for 3D depth
             .graphicsLayer {
                 // 3D Isometric projection tilt
-                rotationX = 45f
+                rotationX = 35f // Less tilt to keep board larger on screen
                 rotationZ = -45f
-                cameraDistance = 16f * density.density
+                cameraDistance = 12f * density.density
             }
             .background(Color.Transparent)
     ) {
@@ -102,8 +102,8 @@ fun LudoBoard3D(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 16.dp, x = 4.dp) // creates depth layer
-                .clip(RoundedCornerShape(24.dp))
+                .offset(y = 12.dp, x = 4.dp) // creates depth layer
+                .clip(RoundedCornerShape(16.dp))
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
@@ -112,40 +112,51 @@ fun LudoBoard3D(
                         )
                     )
                 )
-                .border(2.dp, Primary.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
+                .border(2.dp, Primary.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
         )
 
         // Main Board surface
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(Color(0xFF0D1117))
-                .border(2.dp, Primary.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
+                .border(2.dp, Primary.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                 .pointerInput(boardState) {
                     detectTapGestures { offset ->
                         // Calculate which grid cell was clicked
                         val boardSize = size.width
                         val cellSize = boardSize / 15f
+                        
+                        // Broaden hit-test area slightly for mobile fingers
                         val col = (offset.x / cellSize).toInt().coerceIn(0, 14)
                         val row = (offset.y / cellSize).toInt().coerceIn(0, 14)
 
-                        // Find if there is a clickable token belonging to the current player on this cell
+                        // 1. Check for tokens on the track/home stretch first (highest priority)
                         val clickedToken = boardState.tokens.firstOrNull { token ->
                             token.color == boardState.currentPlayer &&
+                                    token.positionType != TokenPositionType.BASE &&
                                     LudoCoordinates.getCell(token) == LudoCell(col, row)
                         }
 
-                        // Also check base clicks if current player rolled a 6
-                        val baseToken = if (clickedToken == null && boardState.diceValue == 6) {
-                            boardState.tokens.firstOrNull { token ->
-                                token.color == boardState.currentPlayer &&
-                                        token.positionType == TokenPositionType.BASE &&
-                                        LudoCoordinates.getCell(token) == LudoCell(col, row)
+                        // 2. If no track token clicked, check if user clicked their base area
+                        val finalToken = if (clickedToken != null) {
+                            clickedToken
+                        } else {
+                            // Check if click is within the 6x6 base region of the current player
+                            val isClickInCurrentBase = when (boardState.currentPlayer) {
+                                LudoColor.GREEN -> col in 0..5 && row in 0..5
+                                LudoColor.YELLOW -> col in 9..14 && row in 0..5
+                                LudoColor.RED -> col in 0..5 && row in 9..14
+                                LudoColor.BLUE -> col in 9..14 && row in 9..14
                             }
-                        } else null
 
-                        val finalToken = clickedToken ?: baseToken
+                            if (isClickInCurrentBase) {
+                                // Find any token still in base to move out
+                                boardState.tokens.firstOrNull { it.color == boardState.currentPlayer && it.positionType == TokenPositionType.BASE }
+                            } else null
+                        }
+
                         if (finalToken != null) {
                             onTokenClick(finalToken)
                         }
