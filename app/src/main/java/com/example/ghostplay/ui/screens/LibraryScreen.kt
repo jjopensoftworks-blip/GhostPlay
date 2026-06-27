@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,6 +22,7 @@ import com.example.ghostplay.data.model.Game
 fun LibraryScreen(
     onAddGame: () -> Unit,
     onViewStatistics: () -> Unit,
+    onGameClick: (String) -> Unit,
     viewModel: LibraryViewModel = viewModel()
 ) {
     val games by viewModel.games.collectAsState()
@@ -32,14 +33,14 @@ fun LibraryScreen(
                 title = { Text("Game Library") },
                 actions = {
                     IconButton(onClick = onViewStatistics) {
-                        Icon(Icons.Default.BarChart, contentDescription = "Statistics")
+                        Icon(Icons.Rounded.BarChart, contentDescription = "Statistics")
                     }
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddGame) {
-                Icon(Icons.Default.Add, contentDescription = "Add Game")
+                Icon(Icons.Rounded.Add, contentDescription = "Add Game")
             }
         }
     ) { padding ->
@@ -61,7 +62,11 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(games) { game ->
-                    GameItem(game = game, onDelete = { viewModel.deleteGame(game) })
+                    GameItem(
+                        game = game,
+                        onClick = { onGameClick(game.id) },
+                        onDelete = { viewModel.deleteGame(game) }
+                    )
                 }
             }
         }
@@ -69,9 +74,10 @@ fun LibraryScreen(
 }
 
 @Composable
-fun GameItem(game: Game, onDelete: () -> Unit) {
+fun GameItem(game: Game, onClick: () -> Unit, onDelete: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier
@@ -85,7 +91,7 @@ fun GameItem(game: Game, onDelete: () -> Unit) {
                 Text(text = game.platform, style = MaterialTheme.typography.bodyMedium)
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+                Icon(Icons.Rounded.Delete, contentDescription = "Delete")
             }
         }
     }

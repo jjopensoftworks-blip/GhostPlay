@@ -1,5 +1,6 @@
 package com.example.ghostplay.data.repository
 
+import android.util.Log
 import com.example.ghostplay.data.model.Session
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -7,14 +8,26 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-class FirebaseSessionRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
-) : SessionRepository {
+class FirebaseSessionRepository : SessionRepository {
 
-    private val sessionsCollection = firestore.collection("sessions")
+    private val firestore: FirebaseFirestore? by lazy {
+        try {
+            FirebaseFirestore.getInstance()
+        } catch (e: Exception) {
+            Log.e("GhostPlay", "Firestore not initialized", e)
+            null
+        }
+    }
+
+    private val sessionsCollection get() = firestore?.collection("sessions")
 
     override fun getSessionsForGame(gameId: String): Flow<List<Session>> = callbackFlow {
-        val subscription = sessionsCollection
+        val collection = sessionsCollection ?: run {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val subscription = collection
             .whereEqualTo("gameId", gameId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -30,7 +43,12 @@ class FirebaseSessionRepository(
     }
 
     override fun getAllSessions(): Flow<List<Session>> = callbackFlow {
-        val subscription = sessionsCollection
+        val collection = sessionsCollection ?: run {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val subscription = collection
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -45,24 +63,25 @@ class FirebaseSessionRepository(
     }
 
     override suspend fun startSession(gameId: String): String {
+        val collection = sessionsCollection ?: return ""
         val session = Session(
             gameId = gameId,
             startTime = System.currentTimeMillis()
         )
-        val result = sessionsCollection.add(session).await()
+        val result = collection.add(session).await()
         return result.id
     }
 
     override suspend fun endSession(sessionId: String, endTime: Long, duration: Long) {
-        sessionsCollection.document(sessionId).update(
+        sessionsCollection?.document(sessionId)?.update(
             mapOf(
                 "endTime" to endTime,
                 "duration" to duration
             )
-        ).await()
+        )?.await()
     }
 
     override suspend fun deleteSession(sessionId: String) {
-        sessionsCollection.document(sessionId).delete().await()
+        sessionsCollection?.document(sessionId)?.delete()?.await()
     }
 }
