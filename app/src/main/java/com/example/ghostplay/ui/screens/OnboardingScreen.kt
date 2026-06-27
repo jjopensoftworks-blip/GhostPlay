@@ -7,7 +7,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,6 +19,7 @@ fun OnboardingScreen(
     onNameSet: (String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var isInitializing by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -35,14 +35,15 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
-                text = "NEON_INITIALIZATION",
+                text = "NEON_IDENTITY_SETUP",
                 style = MaterialTheme.typography.displayMedium,
                 color = Primary,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 32.sp
             )
             
             Text(
-                text = "IDENTIFY YOURSELF FOR THE CYBER-PULSE NETWORK",
+                text = "ESTABLISH PLAYER_TAG FOR THE NETWORK",
                 style = MaterialTheme.typography.labelMedium,
                 color = OnSurfaceVariant,
                 letterSpacing = 2.sp
@@ -50,7 +51,7 @@ fun OnboardingScreen(
 
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { if (!isInitializing) name = it },
                 label = { Text("PLAYER_TAG", style = MaterialTheme.typography.labelSmall) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
@@ -59,34 +60,42 @@ fun OnboardingScreen(
                     unfocusedBorderColor = Outline,
                     cursorColor = Secondary,
                     focusedLabelColor = Secondary,
-                    unfocusedLabelColor = OnSurfaceVariant
+                    unfocusedLabelColor = OnSurfaceVariant,
+                    focusedTextColor = OnSurface,
+                    unfocusedTextColor = OnSurface
                 ),
-                singleLine = true
+                singleLine = true,
+                enabled = !isInitializing
             )
 
             Button(
-                onClick = { if (name.isNotBlank()) onNameSet(name) },
+                onClick = { 
+                    if (name.isNotBlank()) {
+                        isInitializing = true
+                        onNameSet(name)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent
+                    containerColor = Secondary,
+                    contentColor = OnSecondary,
+                    disabledContainerColor = SurfaceContainerHighest
                 ),
-                contentPadding = PaddingValues(0.dp)
+                enabled = name.isNotBlank() && !isInitializing
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.horizontalGradient(listOf(Primary, Secondary))
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+                if (isInitializing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = OnSecondary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
                     Text(
                         text = "INITIATE_SESSION",
                         style = MaterialTheme.typography.labelMedium,
-                        color = OnPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 }

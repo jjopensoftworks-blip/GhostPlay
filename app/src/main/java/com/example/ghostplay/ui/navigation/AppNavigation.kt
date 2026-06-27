@@ -36,6 +36,10 @@ fun AppNavigation() {
             currentDestination = Route.Onboarding
             backStack.clear()
             backStack.add(Route.Onboarding)
+        } else if (currentDestination is Route.Onboarding) {
+            currentDestination = Route.Library
+            backStack.clear()
+            backStack.add(Route.Library)
         }
     }
 
