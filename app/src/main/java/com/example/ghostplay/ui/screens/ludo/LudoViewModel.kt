@@ -47,6 +47,42 @@ class LudoViewModel : ViewModel() {
 
     // --- Lobby Creation & Matchmaking ---
 
+    fun sendEmoji(emoji: String) {
+        val lobby = _lobbyState.value ?: return
+        val currentEmojis = lobby.boardState.emojis.toMutableList()
+        currentEmojis.add(Pair(currentUserName.value, emoji))
+        
+        // Keep only last 3 emojis to avoid clutter
+        if (currentEmojis.size > 3) currentEmojis.removeAt(0)
+        
+        val updatedLobby = lobby.copy(
+            boardState = lobby.boardState.copy(emojis = currentEmojis)
+        )
+        updateLobbyOnServer(updatedLobby)
+        
+        // Clear after delay
+        viewModelScope.launch {
+            delay(4000)
+            val l = _lobbyState.value ?: return@launch
+            val list = l.boardState.emojis.toMutableList()
+            list.removeIf { it.second == emoji }
+            updateLobbyOnServer(l.copy(boardState = l.boardState.copy(emojis = list)))
+        }
+    }
+
+    private fun startGameTracking(lobby: LudoLobby): LudoLobby {
+        return lobby.copy(startTime = System.currentTimeMillis())
+    }
+
+    private fun endGameTracking(lobby: LudoLobby, winners: List<LudoColor>): LudoLobby {
+        return lobby.copy(
+            endTime = System.currentTimeMillis(),
+            firstWinner = winners.getOrNull(0),
+            secondWinner = winners.getOrNull(1),
+            status = "FINISHED"
+        )
+    }
+
     fun setupLocalGame(playerCount: Int, botCount: Int) {
         isOnlineMode.value = false
         lobbyCode.value = "LOCAL"
@@ -95,7 +131,7 @@ class LudoViewModel : ViewModel() {
             )
         )
         
-        _lobbyState.value = lobby
+        _lobbyState.value = startGameTracking(lobby)
     }
 
     fun hostOnlineGame() {

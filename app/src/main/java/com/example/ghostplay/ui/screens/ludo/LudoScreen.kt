@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ghostplay.ui.screens.ludo.components.EmojiChannel
 import com.example.ghostplay.ui.theme.*
 import kotlin.random.Random
 import kotlinx.coroutines.delay
@@ -644,60 +645,49 @@ fun LudoGameplayView(
             }
         }
 
-        // 4. Control HUD Dashboard
-        Column(
+        // 4. Control HUD Dashboard & Emoji Channel
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 16.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // ROLL Button
-            if (!board.diceRolled && isMyTurn) {
-                Button(
-                    onClick = { viewModel.rollDice() },
-                    modifier = Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(64.dp)
-                        .graphicsLayer { shadowElevation = 12f },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF).copy(alpha = 0.2f)),
-                    shape = RoundedCornerShape(32.dp),
-                    border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF00E5FF), Color(0xFF00FF9D))))
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Casino, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("ROLL", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
-                    }
-                }
-            } else {
-                // Status Text
-                val statusText = if (isMyTurn) "SELECT A TOKEN TO MOVE" else "WAITING FOR ${board.currentPlayer.name}"
-                Text(
-                    text = statusText.uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Emoji Reaction Channel
+                EmojiChannel(
+                    onEmojiSelected = { viewModel.sendEmoji(it) },
+                    activeEmojis = board.emojis,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Bottom Stats / Nav Bar Mockup
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(30.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomNavItem(Icons.Rounded.Gamepad, "Play", isSelected = true)
-                BottomNavItem(Icons.Rounded.Group, "Invites")
-                BottomNavItem(Icons.Rounded.History, "History")
-                BottomNavItem(Icons.Rounded.VerifiedUser, "Safety")
+
+                // ROLL Button
+                if (!board.diceRolled && isMyTurn) {
+                    Button(
+                        onClick = { viewModel.rollDice() },
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF).copy(alpha = 0.2f)),
+                        shape = RoundedCornerShape(28.dp),
+                        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF00E5FF), Color(0xFF00FF9D))))
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Casino, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("ROLL", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
+                        }
+                    }
+                } else {
+                    // Status Text
+                    val statusText = if (isMyTurn) "SELECT A TOKEN TO MOVE" else "WAITING FOR ${board.currentPlayer.name}"
+                    Text(
+                        text = statusText.uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                }
             }
         }
     }

@@ -27,30 +27,32 @@ fun EmojiChannel(
     val emojis = listOf("🔥", "😂", "🤔", "😮", "👿", "👍", "👻", "⚡")
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Display Area
+                // Display Area
         Box(modifier = Modifier.fillMaxWidth().height(40.dp)) {
             activeEmojis.forEachIndexed { index, pair ->
-                var visible by remember { mutableStateOf(true) }
-                LaunchedEffect(pair) {
-                    kotlinx.coroutines.delay(3000)
-                    visible = false
-                }
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = fadeOut() + scaleOut(),
-                    modifier = Modifier.align(Alignment.Center)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                key(pair) {
+                    var visible by remember { mutableStateOf(true) }
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay(3000)
+                        visible = false
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically { it } + fadeIn(),
+                        exit = fadeOut() + scaleOut(),
+                        modifier = Modifier.align(Alignment.Center)
                     ) {
-                        Text(pair.first, color = Color.White, fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(pair.second, fontSize = 18.sp)
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(pair.first, color = Color.White, fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(pair.second, fontSize = 18.sp)
+                        }
                     }
                 }
             }
