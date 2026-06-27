@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.GhostPlay" parent="Theme.MaterialComponents.Light" />
+</resources>
