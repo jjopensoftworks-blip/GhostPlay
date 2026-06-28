@@ -16,6 +16,18 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
 import com.example.ghostplay.data.repository.UserPreferencesRepository
+import com.example.ghostplay.ui.screens.ludo.network.LudoWebSocketService
+import com.example.ghostplay.ui.screens.ludo.network.LudoWebSocketMessage
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+
+@Serializable
+data class TokenMovePayload(val color: String, val id: Int)
+
+@Serializable
+data class EmojiPayload(val sender: String, val emoji: String)
+
 
 class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewModel() {
 
@@ -47,6 +59,8 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
     // Stats for rules
     private var consecutiveSixes = 0
 
+    private val webSocketService = LudoWebSocketService()
+
     init {
         // Attempt Firestore initialization
         try {
@@ -62,6 +76,49 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
                 if (name != null) {
                     currentUserName.value = name
                 }
+            }
+        }
+
+        // Listen to WebSocket incoming messages
+        viewModelScope.launch {
+            webSocketService.incomingMessages.collect { message ->
+                handleWebSocketMessage(message)
+            }
+        }
+    }
+
+    private fun handleWebSocketMessage(message: LudoWebSocketMessage) {
+        val lobby = _lobbyState.value ?: return
+        when (message.action) {
+            "ROLL" -> {
+                val rollVal = message.payload.toIntOrNull() ?: 1
+                val board = lobby.boardState
+                if (!board.diceRolled) {
+                    val updatedLogs = board.logs + "${board.currentPlayer.name}_ROLLED_$rollVal (Synced)"
+                    val nextBoardState = board.copy(
+                        diceValue = rollVal,
+                        diceRolled = true,
+                        logs = updatedLogs
+                    )
+                    _lobbyState.value = lobby.copy(boardState = nextBoardState)
+                }
+            }
+            "MOVE" -> {
+                val tokenPayload = Json.decodeFromString<TokenMovePayload>(message.payload)
+                val board = lobby.boardState
+                val tokenToMove = board.tokens.find { it.color.name == tokenPayload.color && it.id == tokenPayload.id }
+                if (tokenToMove != null && board.diceRolled) {
+                    executeMove(lobby, tokenToMove, board.diceValue ?: 1)
+                }
+            }
+            "EMOJI" -> {
+                val emojiPayload = Json.decodeFromString<EmojiPayload>(message.payload)
+                val currentEmojis = lobby.boardState.emojis.toMutableList()
+                currentEmojis.add(Pair(emojiPayload.sender, emojiPayload.emoji))
+                if (currentEmojis.size > 3) currentEmojis.removeAt(0)
+                _lobbyState.value = lobby.copy(
+                    boardState = lobby.boardState.copy(emojis = currentEmojis)
+                )
             }
         }
     }
@@ -80,6 +137,11 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
             boardState = lobby.boardState.copy(emojis = currentEmojis)
         )
         updateLobbyOnServer(updatedLobby)
+
+        if (isOnlineMode.value) {
+            val payload = Json.encodeToString(EmojiPayload(currentUserName.value, emoji))
+            webSocketService.sendAction("EMOJI", currentUserId, payload)
+        }
         
         // Clear after delay
         viewModelScope.launch {
@@ -285,6 +347,7 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
             try {
                 db.collection("ludo_lobbies").document(newCode).set(lobby)
                 listenToLobby(newCode)
+                webSocketService.connect(newCode, currentUserId)
             } catch (e: Exception) {
                 Log.e("LudoViewModel", "Error hosting game: ${e.message}")
             }
@@ -351,6 +414,7 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
                 _lobbyState.value = updatedLobby
                 
                 listenToLobby(code)
+                webSocketService.connect(code, currentUserId)
                 onSuccess()
 
             } catch (e: Exception) {
@@ -490,6 +554,10 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
         val updatedLobby = lobby.copy(boardState = nextBoardState)
         updateLobbyOnServer(updatedLobby)
 
+        if (isOnlineMode.value) {
+            webSocketService.sendAction("ROLL", currentUserId, roll.toString())
+        }
+
         // Post roll check: if no moves are possible, skip turn automatically
         checkMovePossibility(updatedLobby, roll)
     }
@@ -547,6 +615,11 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
 
         // Validate move
         if (!isValidMove(token, roll)) return
+
+        if (isOnlineMode.value) {
+            val payload = Json.encodeToString(TokenMovePayload(token.color.name, token.id))
+            webSocketService.sendAction("MOVE", currentUserId, payload)
+        }
 
         viewModelScope.launch {
             executeMove(lobby, token, roll)
@@ -869,6 +942,7 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
     fun cleanupLobby() {
         lobbyListenerRegistration?.remove()
         botJob?.cancel()
+        webSocketService.disconnect()
         _lobbyState.value = null
     }
 

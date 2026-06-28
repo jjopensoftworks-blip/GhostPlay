@@ -78,6 +78,17 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.play.services.location)
     implementation(libs.retrofit)
+    // Google Filament hardware-accelerated 3D engine
+    implementation("com.google.android.filament:filament-android:1.52.0")
+    implementation("com.google.android.filament:gltfio-android:1.52.0")
+    implementation("com.google.android.filament:filamat-android:1.52.0")
+
+    // Ktor client & low-latency WebSockets
+    implementation("io.ktor:ktor-client-core:2.3.11")
+    implementation("io.ktor:ktor-client-okhttp:2.3.11")
+    implementation("io.ktor:ktor-client-websockets:2.3.11")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.junit)
