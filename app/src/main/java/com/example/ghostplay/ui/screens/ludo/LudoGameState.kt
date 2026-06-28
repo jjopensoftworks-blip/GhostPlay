@@ -46,7 +46,8 @@ data class LudoBoardState(
     val diceRolled: Boolean = false,
     val winningPlayers: List<LudoColor> = emptyList(),
     val logs: List<String> = listOf("INITIALIZING_CYBERPULSE_LUDO"),
-    val emojis: List<Pair<String, String>> = emptyList() // PlayerId to Emoji
+    val emojis: List<Pair<String, String>> = emptyList(), // PlayerId to Emoji
+    val consecutiveSixes: Int = 0
 ) {
     companion object {
         fun initialTokens(): List<LudoToken> {

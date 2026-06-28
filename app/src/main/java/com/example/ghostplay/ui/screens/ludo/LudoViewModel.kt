@@ -55,9 +55,6 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
     private var botJob: Job? = null
     private var timerJob: Job? = null
     private var disconnectJob: Job? = null
-    
-    // Stats for rules
-    private var consecutiveSixes = 0
 
     private val webSocketService = LudoWebSocketService()
 
@@ -487,9 +484,8 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
                         val oldPlayer = _lobbyState.value?.boardState?.currentPlayer
                         _lobbyState.value = lobby
                         
-                        // If turn changed, restart timer and reset 6s
+                        // If turn changed, restart timer
                         if (oldPlayer != lobby.boardState.currentPlayer) {
-                            consecutiveSixes = 0
                             startTurnTimer()
                         }
 
@@ -501,7 +497,13 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
     }
 
     private fun updateLobbyOnServer(lobby: LudoLobby) {
+        val oldPlayer = _lobbyState.value?.boardState?.currentPlayer
         _lobbyState.value = lobby
+        
+        if (oldPlayer != lobby.boardState.currentPlayer) {
+            startTurnTimer()
+        }
+
         if (isOnlineMode.value) {
             val db = firestore
             if (db != null) {
@@ -529,26 +531,32 @@ class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewMode
         val updatedLogs = board.logs.toMutableList()
         updatedLogs.add("${board.currentPlayer.name}_ROLLED_$roll")
 
+        var cSixes = board.consecutiveSixes
         // Rule: 3 consecutive 6s skip turn
         if (roll == 6) {
-            consecutiveSixes++
-            if (consecutiveSixes == 3) {
+            cSixes++
+            if (cSixes == 3) {
                 updatedLogs.add("[PENALTY] THREE_CONSECUTIVE_6S! TURN_SKIPPED.")
-                consecutiveSixes = 0
-                viewModelScope.launch {
-                    delay(1000.milliseconds)
-                    passTurn(lobby)
-                }
+                val nextPlayer = getNextPlayer(board.currentPlayer, board.winningPlayers, lobby.players)
+                val nextBoardState = board.copy(
+                    currentPlayer = nextPlayer,
+                    diceValue = null,
+                    diceRolled = false,
+                    logs = updatedLogs,
+                    consecutiveSixes = 0
+                )
+                updateLobbyOnServer(lobby.copy(boardState = nextBoardState))
                 return
             }
         } else {
-            consecutiveSixes = 0
+            cSixes = 0
         }
 
         val nextBoardState = board.copy(
             diceValue = roll,
             diceRolled = true,
-            logs = updatedLogs
+            logs = updatedLogs,
+            consecutiveSixes = cSixes
         )
 
         val updatedLobby = lobby.copy(boardState = nextBoardState)
