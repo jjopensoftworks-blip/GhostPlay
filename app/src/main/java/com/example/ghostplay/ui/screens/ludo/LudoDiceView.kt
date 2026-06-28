@@ -10,13 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,16 @@ fun LudoDiceView(
         label = "scale"
     )
 
+    val bobbingAnim by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 4.dp.value,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bobbing"
+    )
+
     Box(
         modifier = modifier
             .size(size)
@@ -60,59 +71,113 @@ fun LudoDiceView(
                     rotationZ = rotation
                     scaleX = scale
                     scaleY = scale
+                } else {
+                    translationY = -bobbingAnim // Floating bobbing effect
                 }
             },
         contentAlignment = Alignment.Center
     ) {
-        // Shadow
+        // Soft contact shadow below the floating dice
         Box(
             modifier = Modifier
-                .size(size * 0.9f)
-                .offset(y = 4.dp)
-                .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                .size(size * 0.85f)
+                .offset(y = 8.dp + bobbingAnim.dp)
+                .graphicsLayer {
+                    // Shadow shrinks as dice floats higher
+                    val s = 1.0f - (bobbingAnim / 15.dp.value)
+                    scaleX = s
+                    scaleY = s
+                    alpha = 0.35f * s
+                }
+                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
         )
 
-        // Dice Body
+        // Glass Dice Body Canvas
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(12.dp))
-                .border(2.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
         ) {
             val diceSize = this.size.width
             
-            // White gradient for premium 3D look
+            // Refractive glass gradient base
             drawRoundRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFFFFFFF),
-                        Color(0xFFF1F5F9),
-                        Color(0xFFE2E8F0)
+                        Color.White.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.08f),
+                        Color(0xFFE2E8F0).copy(alpha = 0.15f)
                     )
                 ),
                 size = this.size,
-                cornerRadius = CornerRadius(12.dp.toPx())
+                cornerRadius = CornerRadius(14.dp.toPx())
             )
 
-            // Draw Dots
+            // Dynamic diagonal gloss lines/refractions
+            val glossPath = Path().apply {
+                moveTo(0f, 0f)
+                lineTo(diceSize * 0.4f, 0f)
+                lineTo(0f, diceSize * 0.4f)
+                close()
+            }
+            drawPath(
+                path = glossPath,
+                color = Color.White.copy(alpha = 0.25f)
+            )
+
+            val glarePath = Path().apply {
+                moveTo(diceSize * 0.55f, 0f)
+                lineTo(diceSize, 0f)
+                lineTo(0f, diceSize * 1.0f)
+                lineTo(0f, diceSize * 0.75f)
+                close()
+            }
+            drawPath(
+                path = glarePath,
+                color = Color.White.copy(alpha = 0.12f)
+            )
+
+            // Inner glass rim highlight
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.3f),
+                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                size = Size(diceSize - 4.dp.toPx(), diceSize - 4.dp.toPx()),
+                cornerRadius = CornerRadius(12.dp.toPx()),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            // Draw Slate Black Dots
             drawDiceDots(number, diceSize, color)
         }
     }
 }
 
 private fun DrawScope.drawDiceDots(number: Int, size: Float, color: Color) {
-    val dotRadius = size * 0.08f
-    val margin = size * 0.25f
+    val dotRadius = size * 0.075f
+    val margin = size * 0.26f
     val center = size / 2f
     
-    val dotColor = Color(0xFF1E293B) // Dark Slate for black dots
+    val dotColor = Color(0xFF0F172A) // Dark Slate Black
 
     fun drawDot(x: Float, y: Float) {
-        // Draw crisp dot
+        // Base Dot shadow
+        drawCircle(
+            color = Color.Black.copy(alpha = 0.2f),
+            radius = dotRadius,
+            center = Offset(x, y + 1.dp.toPx())
+        )
+        // Main crisp dot
         drawCircle(
             color = dotColor,
             radius = dotRadius,
             center = Offset(x, y)
+        )
+        // Dot glass sparkle specular
+        drawCircle(
+            color = Color.White.copy(alpha = 0.4f),
+            radius = dotRadius * 0.3f,
+            center = Offset(x - dotRadius * 0.3f, y - dotRadius * 0.3f)
         )
     }
 

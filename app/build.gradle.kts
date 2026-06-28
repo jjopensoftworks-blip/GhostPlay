@@ -33,6 +33,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 
@@ -79,9 +85,9 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.retrofit)
     // Google Filament hardware-accelerated 3D engine
-    implementation("com.google.android.filament:filament-android:1.52.0")
-    implementation("com.google.android.filament:gltfio-android:1.52.0")
-    implementation("com.google.android.filament:filamat-android:1.52.0")
+    implementation("com.google.android.filament:filament-android:1.53.0")
+    implementation("com.google.android.filament:gltfio-android:1.53.0")
+    implementation("com.google.android.filament:filamat-android:1.53.0")
 
     // Ktor client & low-latency WebSockets
     implementation("io.ktor:ktor-client-core:2.3.11")

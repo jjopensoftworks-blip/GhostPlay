@@ -33,6 +33,11 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import kotlin.math.roundToInt
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -188,243 +193,654 @@ fun LudoScreen(
     }
 }
 
-// --- Setup/Mode Selection View ---
+// --- Redesigned PLAY Setup/Launcher Dashboard View ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LudoSetupView(
     viewModel: LudoViewModel,
     onBack: () -> Unit
 ) {
-    var modeSelected by remember { mutableStateOf<String?>(null) } // "LOCAL", "JOIN", "HOST"
-    var localPlayerCount by remember { mutableStateOf(2) }
-    var localBotCount by remember { mutableStateOf(2) }
-    var aiDifficulty by remember { mutableStateOf("Medium") } // Easy, Medium, Hard
-    var lobbyCodeInput by remember { mutableStateOf("") }
-    var joinError by remember { mutableStateOf<String?>(null) }
-    var isJoining by remember { mutableStateOf(false) }
+    var botDifficultySliderValue by remember { mutableStateOf(1f) } // 0=Easy, 1=Medium, 2=Hard
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .verticalScroll(scrollState)
+            .background(Color(0xFF040A18))
     ) {
-        TopAppBar(
-            title = { Text("LUDO_SETUP", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "BACK")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (modeSelected == null) {
-            Text(
-                text = "SELECT CONNECTION",
-                style = MaterialTheme.typography.labelSmall,
-                color = OnSurfaceVariant,
-                modifier = Modifier.padding(bottom = 16.dp)
+        // --- 1. Immersive Top 65% Viewport (Zero Padding) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(440.dp)
+                .background(Color(0xFF040A18))
+        ) {
+            val initialMockState = remember {
+                LudoBoardState(
+                    tokens = LudoBoardState.initialTokens(),
+                    currentPlayer = LudoColor.RED,
+                    diceRolled = false
+                )
+            }
+            LudoBoard3D(
+                boardState = initialMockState,
+                onTokenClick = {},
+                modifier = Modifier.fillMaxSize()
             )
 
-            SetupOptionCard(
-                title = "LOCAL SIMULATION",
-                subtitle = "Play offline with bots & difficulty settings.",
-                icon = Icons.Rounded.Computer,
-                tint = Secondary,
-                onClick = { modeSelected = "LOCAL" }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SetupOptionCard(
-                title = "HOST LOBBY",
-                subtitle = "Host a matching lobby node on the cloud.",
-                icon = Icons.Rounded.CloudUpload,
-                tint = Primary,
-                onClick = { viewModel.hostOnlineGame() }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SetupOptionCard(
-                title = "JOIN LOBBY",
-                subtitle = "Link to an active game via lobby code.",
-                icon = Icons.Rounded.Login,
-                tint = Tertiary,
-                onClick = { modeSelected = "JOIN" }
-            )
-
-        } else if (modeSelected == "LOCAL") {
-            Text(
-                text = "PARAMETERS",
-                style = MaterialTheme.typography.labelMedium,
-                color = Secondary,
-                modifier = Modifier.padding(bottom = 20.dp)
-            )
-
-            Text("HUMAN_PLAYERS: $localPlayerCount", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
-            Slider(
-                value = localPlayerCount.toFloat(),
-                onValueChange = { localPlayerCount = it.toInt() },
-                valueRange = 1f..4f,
-                steps = 2,
-                colors = SliderDefaults.colors(thumbColor = Secondary, activeTrackColor = Secondary)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text("AI_BOTS: $localBotCount", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
-            Slider(
-                value = localBotCount.toFloat(),
-                onValueChange = { localBotCount = it.toInt() },
-                valueRange = 0f..3f,
-                steps = 2,
-                colors = SliderDefaults.colors(thumbColor = Secondary, activeTrackColor = Secondary)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // AI DIFFICULTY BUTTONS
-            Text("AI_DIFFICULTY: $aiDifficulty", style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+            // Overlays: Latency & Turn
+            // Latency Indicator (Top-Left)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                listOf("Easy", "Medium", "Hard").forEach { diff ->
-                    val isSelected = aiDifficulty == diff
-                    Button(
-                        onClick = { aiDifficulty = diff },
-                        modifier = Modifier.weight(1f).border(1.dp, if (isSelected) Secondary else Color.Transparent, RoundedCornerShape(8.dp)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) Secondary.copy(alpha = 0.2f) else SurfaceContainerLow
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF00FF9D))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "10ms",
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Turn Indicator (Top-Right)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFFF2A7A).copy(alpha = 0.15f))
+                    .border(1.dp, Color(0xFFFF2A7A).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "RED'S TURN",
+                    color = Color(0xFFFF2A7A),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            
+            // Back button
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White
+                )
+            }
+        }
+
+        // --- 2. Translucent Glassmorphism Launcher Container (35%) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(185.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.04f))
+                    .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.22f), RoundedCornerShape(24.dp))
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Card A: PVP (Left)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF080F20).copy(alpha = 0.75f))
+                        .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                        .clickable { viewModel.hostOnlineGame() }
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(text = diff.uppercase(), color = if (isSelected) Secondary else OnSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                    val total = localPlayerCount + localBotCount
-                    val finalBots = if (total > 4) 4 - localPlayerCount else localBotCount
-                    viewModel.setupLocalGame(localPlayerCount, finalBots.coerceAtLeast(0), aiDifficulty)
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp).border(1.dp, Secondary, RoundedCornerShape(12.dp)),
-                colors = ButtonDefaults.buttonColors(containerColor = Secondary.copy(alpha = 0.15f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("INITIATE_SIMULATION", color = Secondary, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            TextButton(
-                onClick = { modeSelected = null },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("CANCEL", color = OnSurfaceVariant)
-            }
-
-        } else if (modeSelected == "JOIN") {
-            Text(
-                text = "ESTABLISHING LINK",
-                style = MaterialTheme.typography.labelMedium,
-                color = Tertiary,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-
-            OutlinedTextField(
-                value = lobbyCodeInput,
-                onValueChange = { lobbyCodeInput = it.uppercase() },
-                label = { Text("LOBBY_CODE", style = MaterialTheme.typography.labelSmall) },
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Tertiary,
-                    unfocusedBorderColor = OutlineVariant,
-                    focusedLabelColor = Tertiary,
-                    unfocusedLabelColor = OnSurfaceVariant
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            joinError?.let {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "LINK_FAILURE: $it", color = Error, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                    if (lobbyCodeInput.isNotEmpty()) {
-                        isJoining = true
-                        joinError = null
-                        viewModel.joinOnlineGame(
-                            code = lobbyCodeInput,
-                            onSuccess = { isJoining = false },
-                            onError = { err ->
-                                isJoining = false
-                                joinError = err
-                            }
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF00E5FF),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "PVP",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            text = "(actual person)",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 10.sp
                         )
                     }
-                },
-                enabled = !isJoining && lobbyCodeInput.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(56.dp).border(1.dp, Tertiary, RoundedCornerShape(12.dp)),
-                colors = ButtonDefaults.buttonColors(containerColor = Tertiary.copy(alpha = 0.15f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isJoining) {
-                    CircularProgressIndicator(color = Tertiary, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("CONNECT_NODE", color = Tertiary, fontWeight = FontWeight.Bold)
+                }
+
+                // Card B: BOT (Right)
+                Box(
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF080F20).copy(alpha = 0.75f))
+                        .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                        .clickable {
+                            val diff = when (botDifficultySliderValue.roundToInt()) {
+                                0 -> "Easy"
+                                1 -> "Medium"
+                                else -> "Hard"
+                            }
+                            viewModel.setupLocalGame(playerCount = 1, botCount = 3, difficulty = diff)
+                        }
+                        .padding(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "BOT",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "(AI)",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 10.sp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Icon(
+                                imageVector = Icons.Rounded.SmartToy,
+                                contentDescription = null,
+                                tint = Color(0xFFFF2A7A),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Slider(
+                                value = botDifficultySliderValue,
+                                onValueChange = { botDifficultySliderValue = it },
+                                valueRange = 0f..2f,
+                                steps = 1,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color(0xFF00E5FF),
+                                    activeTrackColor = Color(0xFF00E5FF),
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.15f)
+                                ),
+                                modifier = Modifier.height(28.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Easy",
+                                    color = if (botDifficultySliderValue.roundToInt() == 0) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.4f),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Medium",
+                                    color = if (botDifficultySliderValue.roundToInt() == 1) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.4f),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Hard",
+                                    color = if (botDifficultySliderValue.roundToInt() == 2) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.4f),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // Floating Refractive Glass Dice
+            LudoDiceView(
+                number = 4,
+                isRolling = false,
+                size = 64.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(y = 12.dp)
+            )
+        }
 
-            TextButton(
-                onClick = { modeSelected = null },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("CANCEL", color = OnSurfaceVariant)
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // --- 3. Scrollable columns underneath (INVITES, HISTORY, SAFETY) ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            InviteCardMock()
+            HistoryCardMock()
+            SafetyCardMock()
+        }
+
+        Spacer(modifier = Modifier.height(100.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InviteCardMock() {
+    Column(
+        modifier = Modifier
+            .width(260.dp)
+            .height(290.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF080F20))
+            .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "INVITES",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                letterSpacing = 1.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF040A18))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "SEARCH USERNAME",
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = "Recent Players",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        
+        val players = listOf(
+            Pair("@PlayerOne", "Pending"),
+            Pair("@PlayerTwo", "Ready"),
+            Pair("@PlayerThree", "Ready"),
+            Pair("@PlayerFour", "Ready")
+        )
+        
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            players.forEach { (name, status) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = name,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Username",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 8.sp
+                        )
+                    }
+                    val isPending = status == "Pending"
+                    Text(
+                        text = if (isPending) "• Pending" else "• Ready",
+                        color = if (isPending) Color(0xFFFFE500) else Color(0xFF00FF9D),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun SetupOptionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    tint: Color,
-    onClick: () -> Unit
-) {
-    Row(
+fun HistoryCardMock() {
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .width(260.dp)
+            .height(290.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceContainerLow)
-            .border(1.dp, tint.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
-            .clickable { onClick() }
-            .padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(Color(0xFF080F20))
+            .border(1.dp, Color(0xFFFF2A7A).copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(32.dp))
-        Spacer(modifier = Modifier.width(20.dp))
-        Column {
-            Text(text = title, style = MaterialTheme.typography.labelMedium, color = OnSurface)
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "HISTORY",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                letterSpacing = 1.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF040A18))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "SEARCH USERNAME",
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF0B1226))
+                        .border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Ludo - Match 345 | Green vs.",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Yellow | Winner:",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "Green",
+                                color = Color(0xFF00FF9D),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Stats (Cancelled)",
+                        color = Color(0xFFFF2A7A),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
+
+@Composable
+fun SafetyCardMock() {
+    Column(
+        modifier = Modifier
+            .width(260.dp)
+            .height(290.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF080F20))
+            .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "SAFETY",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                letterSpacing = 1.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF040A18))
+                .padding(2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF0B1226)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Data",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Safety",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "Data Privacy",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Secure connections match security, so your data and privacy are protected.",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 7.5.sp,
+                        lineHeight = 10.sp
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF00FF9D),
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "Secure Connections",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Secure connections are matching secure connections, ensuring credibility.",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 7.5.sp,
+                        lineHeight = 10.sp
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "General Safety",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "General security and game safety settings in close online safety.",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 7.5.sp,
+                        lineHeight = 10.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
 
 // --- Online Lobby Room View ---
 @OptIn(ExperimentalMaterial3Api::class)
