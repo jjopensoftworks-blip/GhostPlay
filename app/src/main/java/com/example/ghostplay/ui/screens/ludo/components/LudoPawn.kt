@@ -1,7 +1,4 @@
 package com.example.ghostplay.ui.screens.ludo.components
-
-import androidx.compose.animation.core.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush

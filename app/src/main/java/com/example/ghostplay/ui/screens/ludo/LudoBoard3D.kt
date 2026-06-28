@@ -4,7 +4,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +24,6 @@ import com.example.ghostplay.ui.screens.ludo.components.LudoPawn
 import com.example.ghostplay.ui.screens.ludo.components.PawnAnimationState
 import com.example.ghostplay.ui.screens.ludo.components.PawnCharacterType
 import com.example.ghostplay.ui.theme.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -335,7 +333,32 @@ private fun DrawScope.drawHomeAreas(cellSize: Float) {
     // Crystal base accents
     LudoColor.entries.forEach { color ->
         val neon = color.toNeonColor()
-        // Simple triangle accents pointing to center
+        val path = Path().apply {
+            when (color) {
+                LudoColor.GREEN -> {
+                    moveTo(basePos, basePos)
+                    lineTo(basePos + cellSize * 0.5f, basePos)
+                    lineTo(basePos, basePos + cellSize * 0.5f)
+                }
+                LudoColor.YELLOW -> {
+                    moveTo(basePos + centerSize, basePos)
+                    lineTo(basePos + centerSize - cellSize * 0.5f, basePos)
+                    lineTo(basePos + centerSize, basePos + cellSize * 0.5f)
+                }
+                LudoColor.RED -> {
+                    moveTo(basePos, basePos + centerSize)
+                    lineTo(basePos + cellSize * 0.5f, basePos + centerSize)
+                    lineTo(basePos, basePos + centerSize - cellSize * 0.5f)
+                }
+                LudoColor.BLUE -> {
+                    moveTo(basePos + centerSize, basePos + centerSize)
+                    lineTo(basePos + centerSize - cellSize * 0.5f, basePos + centerSize)
+                    lineTo(basePos + centerSize, basePos + centerSize - cellSize * 0.5f)
+                }
+            }
+            close()
+        }
+        drawPath(path, neon.copy(alpha = 0.6f))
     }
 }
 
@@ -423,95 +446,6 @@ private fun DrawScope.drawSafeZones(cellSize: Float) {
     }
 }
 
-// Draw a high-fidelity animated token with effects
-private fun DrawScope.drawAnimatedToken(
-    col: Float,
-    row: Float,
-    hop: Float,
-    scale: Float,
-    rotation: Float,
-    isDizzy: Boolean,
-    color: Color,
-    cellSize: Float,
-    isClickable: Boolean
-) {
-    val cx = col * cellSize + cellSize / 2f
-    val cy = row * cellSize + cellSize / 2f
-
-    // Calculate vertical offset due to "hop" height animation
-    val hopOffset = hop * cellSize * 1.2f
-
-    // Center point shifted upwards by the hop offset
-    val tx = cx
-    val ty = cy - hopOffset
-
-    // 1. Draw Ground Shadow (dynamic based on hop)
-    val shadowRadius = (cellSize * 0.35f) * (1f - hop * 0.3f) * scale
-    drawOval(
-        color = Color.Black.copy(alpha = 0.5f * (1f - hop * 0.5f)),
-        topLeft = Offset(cx - shadowRadius, cy - shadowRadius * 0.5f),
-        size = Size(shadowRadius * 2f, shadowRadius * 1f)
-    )
-
-    // 2. Draw Token Body with Scale and Rotation
-    withTransform({
-        translate(tx, ty)
-        scale(scale, scale, Offset.Zero)
-        rotate(rotation, Offset.Zero)
-        translate(-tx, -ty)
-    }) {
-        val radius = cellSize * 0.35f
-        
-        // Outer Glow
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color.copy(alpha = 0.6f), Color.Transparent),
-                center = Offset(tx, ty),
-                radius = radius * 1.5f
-            ),
-            center = Offset(tx, ty),
-            radius = radius * 1.5f
-        )
-
-        // Body
-        drawCircle(
-            color = color,
-            center = Offset(tx, ty),
-            radius = radius
-        )
-        
-        // Inner Gloss
-        drawCircle(
-            color = Color.White.copy(alpha = 0.4f),
-            center = Offset(tx - radius * 0.3f, ty - radius * 0.3f),
-            radius = radius * 0.4f
-        )
-        
-        // Dizzy Emoticon (if captured)
-        if (isDizzy) {
-            val eyeSize = radius * 0.2f
-            // Left Eye X
-            drawLine(Color.Black, Offset(tx - radius * 0.4f, ty - eyeSize), Offset(tx - radius * 0.2f, ty + eyeSize), 2.dp.toPx())
-            drawLine(Color.Black, Offset(tx - radius * 0.2f, ty - eyeSize), Offset(tx - radius * 0.4f, ty + eyeSize), 2.dp.toPx())
-            // Right Eye X
-            drawLine(Color.Black, Offset(tx + radius * 0.2f, ty - eyeSize), Offset(tx + radius * 0.4f, ty + eyeSize), 2.dp.toPx())
-            drawLine(Color.Black, Offset(tx + radius * 0.4f, ty - eyeSize), Offset(tx + radius * 0.2f, ty + eyeSize), 2.dp.toPx())
-        }
-    }
-
-    // 3. Clickable Turn Highlight (Glowing Pulsing Ring)
-    if (isClickable) {
-        val pulseScale = 1f + (System.currentTimeMillis() % 1000) / 1000f * 0.4f
-        val pulseRadius = cellSize * 0.5f * pulseScale
-        drawCircle(
-            color = color.copy(alpha = 0.3f * (2f - pulseScale)),
-            center = Offset(tx, ty),
-            radius = pulseRadius,
-            style = Stroke(width = 2.dp.toPx())
-        )
-    }
-}
-
 // Class to manage step-by-step path hop animations
 class AnimatableToken(startCol: Float, startRow: Float) {
     val col = Animatable(startCol)
@@ -576,7 +510,7 @@ class AnimatableToken(startCol: Float, startRow: Float) {
             
             // 3. Restore scale
             launch {
-                delay(800)
+                kotlinx.coroutines.delay(800)
                 scale.animateTo(1f, tween(200))
             }
         }
