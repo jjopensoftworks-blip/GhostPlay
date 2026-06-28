@@ -24,6 +24,7 @@ import com.example.ghostplay.ui.screens.ludo.components.LudoPawn
 import com.example.ghostplay.ui.screens.ludo.components.PawnAnimationState
 import com.example.ghostplay.ui.screens.ludo.components.PawnCharacterType
 import com.example.ghostplay.ui.theme.*
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -104,14 +105,12 @@ fun LudoBoard2D(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .padding(8.dp)
             .background(Color.Transparent)
     ) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF1E2433)) // Darker matte background like image
+                .background(Color(0xFF0A0E1A)) // Deep space background
                 .pointerInput(boardState) {
                     detectTapGestures { offset ->
                         val boardSize = size.width
@@ -212,20 +211,19 @@ fun LudoBoard3D(
 
 // Draw basic grid backgrounds
 private fun DrawScope.drawLudoGrid(cellSize: Float) {
+    // Subtle Background Grid
     for (i in 0..15) {
-        // Vertical lines
         drawLine(
-            color = Color.White.copy(alpha = 0.05f),
+            color = Color.White.copy(alpha = 0.03f),
             start = Offset(i * cellSize, 0f),
             end = Offset(i * cellSize, size.height),
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 0.5.dp.toPx()
         )
-        // Horizontal lines
         drawLine(
-            color = Color.White.copy(alpha = 0.05f),
+            color = Color.White.copy(alpha = 0.03f),
             start = Offset(0f, i * cellSize),
             end = Offset(size.width, i * cellSize),
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 0.5.dp.toPx()
         )
     }
 }
@@ -244,43 +242,45 @@ private fun DrawScope.drawPlayerBase(color: LudoColor, cellSize: Float) {
     val y = rowOffset * cellSize
     val baseSize = 6 * cellSize
 
-    // House background (matte dark with border as in image)
-    drawRoundRect(
-        color = Color(0xFF141926),
-        topLeft = Offset(x + 4.dp.toPx(), y + 4.dp.toPx()),
-        size = Size(baseSize - 8.dp.toPx(), baseSize - 8.dp.toPx()),
-        cornerRadius = CornerRadius(12.dp.toPx())
+    // 1. Semi-transparent Base Panel
+    drawRect(
+        brush = Brush.verticalGradient(listOf(neon.copy(alpha = 0.15f), neon.copy(alpha = 0.05f))),
+        topLeft = Offset(x, y),
+        size = Size(baseSize, baseSize)
     )
 
-    // Neon Glow Border for House
-    drawRoundRect(
-        color = neon.copy(alpha = 0.6f),
-        topLeft = Offset(x + 4.dp.toPx(), y + 4.dp.toPx()),
-        size = Size(baseSize - 8.dp.toPx(), baseSize - 8.dp.toPx()),
-        cornerRadius = CornerRadius(12.dp.toPx()),
+    // 2. Futuristic Grid-line Textures inside base
+    for (i in 1..5) {
+        drawLine(neon.copy(alpha = 0.1f), Offset(x + i * cellSize, y), Offset(x + i * cellSize, y + baseSize), 1.dp.toPx())
+        drawLine(neon.copy(alpha = 0.1f), Offset(x, y + i * cellSize), Offset(x + baseSize, y + i * cellSize), 1.dp.toPx())
+    }
+
+    // 3. Glowing Neon Border
+    drawRect(
+        color = neon.copy(alpha = 0.4f),
+        topLeft = Offset(x, y),
+        size = Size(baseSize, baseSize),
         style = Stroke(width = 2.dp.toPx())
     )
 
-    // Inner Platforms (The raised squares for pawns in image)
+    // 4. Inner Platforms (Glowing Pods)
     val baseCoords = LudoCoordinates.BASES[color]!!
     baseCoords.forEach { cell ->
-        val px = cell.col * cellSize + 4.dp.toPx()
-        val py = cell.row * cellSize + 4.dp.toPx()
-        val pSize = cellSize - 8.dp.toPx()
+        val cx = cell.col * cellSize + cellSize / 2f
+        val cy = cell.row * cellSize + cellSize / 2f
+        val radius = cellSize * 0.4f
         
-        // Raised Platform
-        drawRoundRect(
-            brush = Brush.verticalGradient(listOf(neon.copy(alpha = 0.4f), neon.copy(alpha = 0.2f))),
-            topLeft = Offset(px, py),
-            size = Size(pSize, pSize),
-            cornerRadius = CornerRadius(8.dp.toPx())
+        // Inner pod glow
+        drawCircle(
+            brush = Brush.radialGradient(listOf(neon.copy(alpha = 0.4f), Color.Transparent)),
+            center = Offset(cx, cy),
+            radius = radius * 1.2f
         )
-        // Platform Border
-        drawRoundRect(
-            color = neon.copy(alpha = 0.8f),
-            topLeft = Offset(px, py),
-            size = Size(pSize, pSize),
-            cornerRadius = CornerRadius(8.dp.toPx()),
+        // Pod ring
+        drawCircle(
+            color = neon.copy(alpha = 0.6f),
+            center = Offset(cx, cy),
+            radius = radius,
             style = Stroke(width = 1.5.dp.toPx())
         )
     }
@@ -293,111 +293,123 @@ private fun DrawScope.drawHomeAreas(cellSize: Float) {
         val neon = color.toNeonColor()
         val cells = LudoCoordinates.HOME_STRETCHES[color]!!
         cells.forEach { cell ->
-            // Step cells (thicker/larger as in image)
+            // High-tech rounded cells
             drawRoundRect(
-                color = Color(0xFF242B38),
-                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
-                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
-                cornerRadius = CornerRadius(6.dp.toPx())
+                color = Color(0xFF141926).copy(alpha = 0.8f),
+                topLeft = Offset(cell.col * cellSize + 1.dp.toPx(), cell.row * cellSize + 1.dp.toPx()),
+                size = Size(cellSize - 2.dp.toPx(), cellSize - 2.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx())
             )
-            // Tint with player color
+            // Glowing border for home stretch
             drawRoundRect(
-                color = neon.copy(alpha = 0.2f),
-                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
-                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
-                cornerRadius = CornerRadius(6.dp.toPx())
+                color = neon.copy(alpha = 0.3f),
+                topLeft = Offset(cell.col * cellSize + 1.dp.toPx(), cell.row * cellSize + 1.dp.toPx()),
+                size = Size(cellSize - 2.dp.toPx(), cellSize - 2.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx()),
+                style = Stroke(width = 1.dp.toPx())
             )
         }
 
-        // Color starting cell
+        // Starting cell highlight
         val startCell = LudoCoordinates.TRACK[LudoCoordinates.START_INDEXES[color]!!]
         drawRoundRect(
-            color = neon.copy(alpha = 0.6f),
-            topLeft = Offset(startCell.col * cellSize + 2.dp.toPx(), startCell.row * cellSize + 2.dp.toPx()),
-            size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
-            cornerRadius = CornerRadius(6.dp.toPx())
+            brush = Brush.radialGradient(listOf(neon.copy(alpha = 0.4f), Color.Transparent)),
+            topLeft = Offset(startCell.col * cellSize, startCell.row * cellSize),
+            size = Size(cellSize, cellSize),
+            cornerRadius = CornerRadius(4.dp.toPx())
         )
     }
 
-    // 2. Draw Center home area (The crystal structure in image)
+    // 2. Draw Center home area
     val basePos = 6 * cellSize
     val centerSize = 3 * cellSize
     
-    drawRoundRect(
-        color = Color(0xFF141926),
+    // Recessed background
+    drawRect(
+        color = Color(0xFF050810),
         topLeft = Offset(basePos, basePos),
-        size = Size(centerSize, centerSize),
-        cornerRadius = CornerRadius(8.dp.toPx())
+        size = Size(centerSize, centerSize)
     )
     
-    // Crystal base accents
+    // Crystal base accents pointing to center
     LudoColor.entries.forEach { color ->
         val neon = color.toNeonColor()
         val path = Path().apply {
             when (color) {
                 LudoColor.GREEN -> {
                     moveTo(basePos, basePos)
-                    lineTo(basePos + cellSize * 0.5f, basePos)
-                    lineTo(basePos, basePos + cellSize * 0.5f)
+                    lineTo(basePos + cellSize, basePos)
+                    lineTo(basePos, basePos + cellSize)
                 }
                 LudoColor.YELLOW -> {
                     moveTo(basePos + centerSize, basePos)
-                    lineTo(basePos + centerSize - cellSize * 0.5f, basePos)
-                    lineTo(basePos + centerSize, basePos + cellSize * 0.5f)
+                    lineTo(basePos + centerSize - cellSize, basePos)
+                    lineTo(basePos + centerSize, basePos + cellSize)
                 }
                 LudoColor.RED -> {
                     moveTo(basePos, basePos + centerSize)
-                    lineTo(basePos + cellSize * 0.5f, basePos + centerSize)
-                    lineTo(basePos, basePos + centerSize - cellSize * 0.5f)
+                    lineTo(basePos + cellSize, basePos + centerSize)
+                    lineTo(basePos, basePos + centerSize - cellSize)
                 }
                 LudoColor.BLUE -> {
                     moveTo(basePos + centerSize, basePos + centerSize)
-                    lineTo(basePos + centerSize - cellSize * 0.5f, basePos + centerSize)
-                    lineTo(basePos + centerSize, basePos + centerSize - cellSize * 0.5f)
+                    lineTo(basePos + centerSize - cellSize, basePos + centerSize)
+                    lineTo(basePos + centerSize, basePos + centerSize - cellSize)
                 }
             }
             close()
         }
-        drawPath(path, neon.copy(alpha = 0.6f))
+        drawPath(path, neon.copy(alpha = 0.5f))
     }
 }
 
 private fun DrawScope.drawDome(cellSize: Float, pulseAlpha: Float) {
     val cx = 7.5f * cellSize
     val cy = 7.5f * cellSize
-    val radius = 1.2f * cellSize
+    val radius = 1.3f * cellSize
 
-    // Dome shadow
+    // 1. Recessed Shadow
     drawCircle(
-        color = Color.Black.copy(alpha = 0.5f),
-        center = Offset(cx, cy + 4.dp.toPx()),
-        radius = radius
+        color = Color.Black,
+        center = Offset(cx, cy),
+        radius = radius + 2.dp.toPx()
     )
 
-    // Dome glass
+    // 2. Metallic Orb Body
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Primary.copy(alpha = 0.4f), Color(0xFF00E5FF).copy(alpha = 0.1f)),
-            center = Offset(cx - radius/3, cy - radius/3),
+            colors = listOf(Color(0xFF8E9AAF), Color(0xFF2F3E46), Color(0xFF0D1117)),
+            center = Offset(cx - radius * 0.3f, cy - radius * 0.3f),
             radius = radius
         ),
         center = Offset(cx, cy),
         radius = radius
     )
     
-    // Dome border
+    // 3. Chrome Highlight
     drawCircle(
-        color = Color.White.copy(alpha = 0.4f),
-        center = Offset(cx, cy),
-        radius = radius,
-        style = Stroke(width = 1.dp.toPx())
+        color = Color.White.copy(alpha = 0.2f),
+        center = Offset(cx - radius * 0.4f, cy - radius * 0.4f),
+        radius = radius * 0.3f
     )
-    
-    // Inner pulse
+
+    // 4. Glowing Core
     drawCircle(
-        color = Primary.copy(alpha = pulseAlpha),
+        brush = Brush.radialGradient(
+            colors = listOf(Primary.copy(alpha = pulseAlpha + 0.4f), Color.Transparent),
+            center = Offset(cx, cy),
+            radius = radius * 0.8f
+        ),
         center = Offset(cx, cy),
         radius = radius * 0.8f
+    )
+    
+    // 5. Orbital Ring
+    drawCircle(
+        color = Primary.copy(alpha = 0.6f),
+        center = Offset(cx, cy),
+        radius = radius,
+        style = Stroke(width = 1.5.dp.toPx())
     )
 }
 
@@ -408,39 +420,38 @@ private fun DrawScope.drawSafeZones(cellSize: Float) {
         val cx = cell.col * cellSize + cellSize / 2f
         val cy = cell.row * cellSize + cellSize / 2f
 
-        // Draw track cell background first
-        drawRoundRect(
-            color = Color(0xFF242B38),
-            topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
-            size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
-            cornerRadius = CornerRadius(6.dp.toPx())
+        // 1. Soft Outer Glow
+        drawCircle(
+            brush = Brush.radialGradient(listOf(Color(0xFF00E5FF).copy(alpha = 0.4f), Color.Transparent)),
+            center = Offset(cx, cy),
+            radius = cellSize * 0.6f
         )
 
-        // Draw a glowing diamond/star in safe cells
-        val starSize = cellSize * 0.3f
+        // 2. Brilliant Glowing Star
+        val starSize = cellSize * 0.35f
         val path = Path().apply {
             moveTo(cx, cy - starSize)
-            lineTo(cx + starSize * 0.3f, cy - starSize * 0.3f)
+            lineTo(cx + starSize * 0.25f, cy - starSize * 0.25f)
             lineTo(cx + starSize, cy)
-            lineTo(cx + starSize * 0.3f, cy + starSize * 0.3f)
+            lineTo(cx + starSize * 0.25f, cy + starSize * 0.25f)
             lineTo(cx, cy + starSize)
-            lineTo(cx - starSize * 0.3f, cy + starSize * 0.3f)
+            lineTo(cx - starSize * 0.25f, cy + starSize * 0.25f)
             lineTo(cx - starSize, cy)
-            lineTo(cx - starSize * 0.3f, cy - starSize * 0.3f)
+            lineTo(cx - starSize * 0.25f, cy - starSize * 0.25f)
             close()
         }
-        drawPath(path, Color(0xFF00E5FF).copy(alpha = 0.6f))
-        drawPath(path, Color(0xFF00E5FF), style = Stroke(width = 1.dp.toPx()))
+        drawPath(path, Color(0xFF00E5FF).copy(alpha = 0.9f))
+        drawPath(path, Color.White, style = Stroke(width = 1.dp.toPx()))
     }
     
     // Draw remaining track cells
     LudoCoordinates.TRACK.forEachIndexed { idx, cell ->
         if (idx !in LudoCoordinates.SAFE_ZONE_INDEXES && idx !in LudoColor.entries.map { LudoCoordinates.START_INDEXES[it]!! }) {
              drawRoundRect(
-                color = Color(0xFF242B38),
-                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
-                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
-                cornerRadius = CornerRadius(6.dp.toPx())
+                color = Color(0xFF242B38).copy(alpha = 0.5f),
+                topLeft = Offset(cell.col * cellSize + 1.dp.toPx(), cell.row * cellSize + 1.dp.toPx()),
+                size = Size(cellSize - 2.dp.toPx(), cellSize - 2.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx())
             )
         }
     }
@@ -510,7 +521,7 @@ class AnimatableToken(startCol: Float, startRow: Float) {
             
             // 3. Restore scale
             launch {
-                kotlinx.coroutines.delay(800)
+                kotlinx.coroutines.delay(800.milliseconds)
                 scale.animateTo(1f, tween(200))
             }
         }
