@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 class LudoViewModel : ViewModel() {
 
@@ -62,7 +63,7 @@ class LudoViewModel : ViewModel() {
         
         // Clear after delay
         viewModelScope.launch {
-            delay(4000)
+            delay(4000.milliseconds)
             val l = _lobbyState.value ?: return@launch
             val list = l.boardState.emojis.toMutableList()
             list.removeIf { it.second == emoji }
@@ -105,15 +106,15 @@ class LudoViewModel : ViewModel() {
         var colorIdx = 0
 
         // Add extra human players if selected
-        for (i in 2..playerCount) {
+        for (_i in 2..playerCount) {
             if (colorIdx < colors.size) {
                 val color = colors[colorIdx++]
-                playersList.add(LudoPlayer(id = "LOCAL_$i", name = "Player_$i", color = color, isBot = false))
+                playersList.add(LudoPlayer(id = "LOCAL_$_i", name = "Player_$_i", color = color, isBot = false))
             }
         }
 
         // Add bot players for the rest of slots up to 4
-        for (i in 1..botCount) {
+        for (_i in 1..botCount) {
             if (colorIdx < colors.size) {
                 val color = colors[colorIdx++]
                 playersList.add(LudoPlayer(id = "BOT_$color", name = "BOT_${color.name}", color = color, isBot = true))
@@ -280,7 +281,7 @@ class LudoViewModel : ViewModel() {
     private fun startTurnTimer() {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            delay(20000) // 20 second turn timer
+            delay(20000.milliseconds) // 20 second turn timer
             val lobby = _lobbyState.value
             if (lobby != null && lobby.status == "PLAYING") {
                 passTurn(lobby)
@@ -355,7 +356,7 @@ class LudoViewModel : ViewModel() {
                 updatedLogs.add("[PENALTY] THREE_CONSECUTIVE_6S! TURN_SKIPPED.")
                 consecutiveSixes = 0
                 viewModelScope.launch {
-                    delay(1000)
+                    delay(1000.milliseconds)
                     passTurn(lobby)
                 }
                 return
@@ -383,19 +384,19 @@ class LudoViewModel : ViewModel() {
 
         // Find if any token of the current player has a valid move
         val validTokens = board.tokens.filter { token ->
-            token.color == playerColor && isValidMove(token, roll, board.tokens)
+            token.color == playerColor && isValidMove(token, roll)
         }
 
         if (validTokens.isEmpty()) {
             // No moves possible! Pass turn after a short delay so user can see the dice roll
             viewModelScope.launch {
-                delay(1500)
+                delay(1500.milliseconds)
                 passTurn(lobby)
             }
         }
     }
 
-    private fun isValidMove(token: LudoToken, roll: Int, allTokens: List<LudoToken>): Boolean {
+    private fun isValidMove(token: LudoToken, roll: Int): Boolean {
         return when (token.positionType) {
             TokenPositionType.BASE -> {
                 // To get out of base, player must roll a 6
@@ -429,14 +430,14 @@ class LudoViewModel : ViewModel() {
         if (isOnlineMode.value && token.color != myPlayerColor.value) return
 
         // Validate move
-        if (!isValidMove(token, roll, board.tokens)) return
+        if (!isValidMove(token, roll)) return
 
         viewModelScope.launch {
             executeMove(lobby, token, roll)
         }
     }
 
-    private suspend fun executeMove(lobby: LudoLobby, token: LudoToken, roll: Int) {
+    private fun executeMove(lobby: LudoLobby, token: LudoToken, roll: Int) {
         val board = lobby.boardState
         val tokens = board.tokens.toMutableList()
 
@@ -460,7 +461,6 @@ class LudoViewModel : ViewModel() {
         logs.add("${token.color.name}_MOVED_TOKEN_${token.id}_BY_$roll")
 
         if (movedToken.positionType == TokenPositionType.TRACK) {
-            val trackCell = LudoCoordinates.TRACK[movedToken.positionIndex]
             val isSafeCell = LudoCoordinates.SAFE_ZONE_INDEXES.contains(movedToken.positionIndex)
 
             if (!isSafeCell) {
@@ -580,9 +580,8 @@ class LudoViewModel : ViewModel() {
         var currentIndex = token.positionIndex
 
         val exitIdx = LudoCoordinates.EXIT_INDEXES[token.color]!!
-        val startIdx = LudoCoordinates.START_INDEXES[token.color]!!
 
-        for (i in 1..roll) {
+        for (_i in 1..roll) {
             if (currentType == TokenPositionType.TRACK) {
                 if (currentIndex == exitIdx) {
                     // Turn into home stretch
@@ -620,7 +619,7 @@ class LudoViewModel : ViewModel() {
         if (player.isBot && isMyResponsibility) {
             botJob?.cancel()
             botJob = viewModelScope.launch {
-                delay(1200) // Thinking delay
+                delay(1200.milliseconds) // Thinking delay
                 
                 if (!board.diceRolled) {
                     // Bot Rolls
@@ -661,7 +660,7 @@ class LudoViewModel : ViewModel() {
         val botColor = board.currentPlayer
 
         val botTokens = board.tokens.filter { it.color == botColor }
-        val validTokens = botTokens.filter { isValidMove(it, roll, board.tokens) }
+        val validTokens = botTokens.filter { isValidMove(it, roll) }
 
         if (validTokens.isEmpty()) {
             // No moves possible, already passed in post-roll check
@@ -671,7 +670,7 @@ class LudoViewModel : ViewModel() {
         // AI decision making
         val selectedToken = selectBestBotToken(validTokens, board.tokens, roll)
         
-        delay(1000) // Movement delay
+        delay(1000.milliseconds) // Movement delay
         executeMove(lobby, selectedToken, roll)
     }
 
@@ -731,7 +730,6 @@ class LudoViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        super.onCleared()
         cleanupLobby()
     }
 }

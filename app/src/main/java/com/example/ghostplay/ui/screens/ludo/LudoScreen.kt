@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ghostplay.ui.screens.ludo.components.EmojiChannel
 import com.example.ghostplay.ui.theme.*
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -445,7 +446,7 @@ fun LudoOnlineLobbyView(
         }
 
         // Fill remaining slots
-        for (i in 1..(4 - lobby.players.size)) {
+        repeat(4 - lobby.players.size) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -524,9 +525,9 @@ fun LudoGameplayView(
         if (board.diceRolled && board.diceValue != null && !isDiceRolling) {
             isDiceRolling = true
             // Run rapid flicker animation
-            for (i in 0..12) {
+            repeat(13) {
                 displayedRollNumber = Random.nextInt(1, 7)
-                delay(60)
+                delay(60.milliseconds)
             }
             displayedRollNumber = board.diceValue
             isDiceRolling = false

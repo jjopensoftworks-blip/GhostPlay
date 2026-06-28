@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
@@ -20,12 +21,13 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.example.ghostplay.ui.screens.ludo.components.LudoPawn
+import com.example.ghostplay.ui.screens.ludo.components.PawnAnimationState
+import com.example.ghostplay.ui.screens.ludo.components.PawnCharacterType
 import com.example.ghostplay.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 
 // Map LudoColor to premium neon colors
 fun LudoColor.toNeonColor(): Color {
@@ -43,28 +45,35 @@ fun LudoBoard2D(
     onTokenClick: (LudoToken) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     
-    // Animation for board pulse
-    val infiniteTransition = rememberInfiniteTransition(label = "board_glow")
+    // Shared Animations
+    val infiniteTransition = rememberInfiniteTransition(label = "board_fx")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
+        initialValue = 0.1f, targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Reverse), label = "alpha"
+    )
+    val sharedFloat by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 4.dp.value,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Reverse), label = "float"
+    )
+    val sharedArms by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 8.dp.value,
+        animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse), label = "victory"
+    )
+    val sharedDanger by infiniteTransition.animateFloat(
+        initialValue = 0.3f, targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "danger"
+    )
+    val sharedRing by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Restart), label = "ring"
     )
 
     // Keep track of animated positions of tokens
     val tokenAnimations = remember { mutableMapOf<String, AnimatableToken>() }
-
-    // Track captured tokens for special animations
     var capturedTokenKey by remember { mutableStateOf<String?>(null) }
 
-    // Initialize/Update token animations when boardState changes
     LaunchedEffect(boardState.tokens) {
         boardState.tokens.forEach { token ->
             val key = "${token.color}_${token.id}"
@@ -77,12 +86,8 @@ fun LudoBoard2D(
             val currentTargetCol = targetCell.col.toFloat()
             val currentTargetRow = targetCell.row.toFloat()
 
-            // If the token position in the state doesn't match the animation target
-            if (animToken.targetCol != currentTargetCol || animToken.targetRow != currentTargetRow) {
-                
-                // Detect if it was a capture (going back to base from track/stretch)
+            if (animToken.targetCol != currentTargetCol || (animToken.targetRow != currentTargetRow)) {
                 val isCaptured = animToken.wasOnTrack && token.positionType == TokenPositionType.BASE
-                
                 scope.launch {
                     if (isCaptured) {
                         capturedTokenKey = key
@@ -101,15 +106,14 @@ fun LudoBoard2D(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .padding(8.dp)
             .background(Color.Transparent)
     ) {
-        // Main Board surface
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF0A0E1A))
-                .border(2.dp, Primary.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF1E2433)) // Darker matte background like image
                 .pointerInput(boardState) {
                     detectTapGestures { offset ->
                         val boardSize = size.width
@@ -134,7 +138,6 @@ fun LudoBoard2D(
                                 boardState.tokens.firstOrNull { it.color == boardState.currentPlayer && it.positionType == TokenPositionType.BASE }
                             } else null
                         }
-
                         if (finalToken != null) onTokenClick(finalToken)
                     }
                 }
@@ -158,21 +161,41 @@ fun LudoBoard2D(
                 val hop = anim.hop.value
                 val scale = anim.scale.value
                 val rotation = anim.rotation.value
+                
                 val isDizzy = capturedTokenKey == key
+                val isVictory = token.positionType == TokenPositionType.FINISHED
+                
+                // Character styling
+                val charType = when (token.id) {
+                    0 -> PawnCharacterType.ROBOT
+                    1 -> PawnCharacterType.ASTRONAUT
+                    2 -> PawnCharacterType.KID
+                    else -> PawnCharacterType.ROBOT
+                }
+                
+                val animState = when {
+                    isDizzy -> PawnAnimationState.CAPTURED
+                    isVictory -> PawnAnimationState.VICTORY
+                    hop > 0.1f -> PawnAnimationState.MOVING
+                    else -> PawnAnimationState.IDLE
+                }
 
                 val isTurn = token.color == boardState.currentPlayer && boardState.diceRolled
                 val isClickable = isTurn && (token.positionType != TokenPositionType.BASE || boardState.diceValue == 6)
 
-                drawAnimatedToken(
-                    col = col,
-                    row = row,
-                    hop = hop,
-                    scale = scale,
-                    rotation = rotation,
-                    isDizzy = isDizzy,
+                // Increased Pawn scale to match board cells
+                LudoPawn.draw(
+                    drawScope = this,
+                    col = col, row = row, hop = hop, scale = scale * 1.1f, rotation = rotation,
                     color = token.color.toNeonColor(),
                     cellSize = cellSize,
-                    isClickable = isClickable
+                    isClickable = isClickable,
+                    animState = animState,
+                    characterType = charType,
+                    floatOffset = if (animState == PawnAnimationState.IDLE) sharedFloat else 0f,
+                    armsOffset = if (animState == PawnAnimationState.VICTORY) sharedArms else 0f,
+                    dangerPulse = sharedDanger,
+                    ringPulse = sharedRing
                 )
             }
         }
@@ -223,57 +246,44 @@ private fun DrawScope.drawPlayerBase(color: LudoColor, cellSize: Float) {
     val y = rowOffset * cellSize
     val baseSize = 6 * cellSize
 
-    // Draw main base container (cyber-glassmorphic style)
-    drawRect(
-        brush = Brush.radialGradient(
-            colors = listOf(neon.copy(alpha = 0.15f), Color.Transparent),
-            center = Offset(x + baseSize/2, y + baseSize/2),
-            radius = baseSize * 0.7f
-        ),
-        topLeft = Offset(x, y),
-        size = Size(baseSize, baseSize)
+    // House background (matte dark with border as in image)
+    drawRoundRect(
+        color = Color(0xFF141926),
+        topLeft = Offset(x + 4.dp.toPx(), y + 4.dp.toPx()),
+        size = Size(baseSize - 8.dp.toPx(), baseSize - 8.dp.toPx()),
+        cornerRadius = CornerRadius(12.dp.toPx())
     )
 
-    // Glowing Neon corners/borders
-    drawRect(
-        color = neon.copy(alpha = 0.4f),
-        topLeft = Offset(x, y),
-        size = Size(baseSize, baseSize),
+    // Neon Glow Border for House
+    drawRoundRect(
+        color = neon.copy(alpha = 0.6f),
+        topLeft = Offset(x + 4.dp.toPx(), y + 4.dp.toPx()),
+        size = Size(baseSize - 8.dp.toPx(), baseSize - 8.dp.toPx()),
+        cornerRadius = CornerRadius(12.dp.toPx()),
         style = Stroke(width = 2.dp.toPx())
     )
-    
-    // Corner accents
-    val accentLen = cellSize
-    // Top-Left
-    drawLine(neon, Offset(x, y), Offset(x + accentLen, y), strokeWidth = 4.dp.toPx())
-    drawLine(neon, Offset(x, y), Offset(x, y + accentLen), strokeWidth = 4.dp.toPx())
-    // Bottom-Right
-    drawLine(neon, Offset(x + baseSize, y + baseSize), Offset(x + baseSize - accentLen, y + baseSize), strokeWidth = 4.dp.toPx())
-    drawLine(neon, Offset(x + baseSize, y + baseSize), Offset(x + baseSize, y + baseSize - accentLen), strokeWidth = 4.dp.toPx())
 
-    // Draw inner home circles / target nests for 4 tokens
+    // Inner Platforms (The raised squares for pawns in image)
     val baseCoords = LudoCoordinates.BASES[color]!!
     baseCoords.forEach { cell ->
-        val cx = cell.col * cellSize + cellSize / 2f
-        val cy = cell.row * cellSize + cellSize / 2f
+        val px = cell.col * cellSize + 4.dp.toPx()
+        val py = cell.row * cellSize + 4.dp.toPx()
+        val pSize = cellSize - 8.dp.toPx()
         
-        // Nest shadow
-        drawCircle(
-            color = Color.Black.copy(alpha = 0.5f),
-            center = Offset(cx, cy),
-            radius = cellSize * 0.4f
+        // Raised Platform
+        drawRoundRect(
+            brush = Brush.verticalGradient(listOf(neon.copy(alpha = 0.4f), neon.copy(alpha = 0.2f))),
+            topLeft = Offset(px, py),
+            size = Size(pSize, pSize),
+            cornerRadius = CornerRadius(8.dp.toPx())
         )
-        // Glowing target ring
-        drawCircle(
-            color = neon.copy(alpha = 0.3f),
-            center = Offset(cx, cy),
-            radius = cellSize * 0.35f,
-            style = Stroke(width = 1.dp.toPx())
-        )
-        drawCircle(
-            color = neon,
-            center = Offset(cx, cy),
-            radius = cellSize * 0.15f
+        // Platform Border
+        drawRoundRect(
+            color = neon.copy(alpha = 0.8f),
+            topLeft = Offset(px, py),
+            size = Size(pSize, pSize),
+            cornerRadius = CornerRadius(8.dp.toPx()),
+            style = Stroke(width = 1.5.dp.toPx())
         )
     }
 }
@@ -285,32 +295,48 @@ private fun DrawScope.drawHomeAreas(cellSize: Float) {
         val neon = color.toNeonColor()
         val cells = LudoCoordinates.HOME_STRETCHES[color]!!
         cells.forEach { cell ->
-            drawRect(
+            // Step cells (thicker/larger as in image)
+            drawRoundRect(
+                color = Color(0xFF242B38),
+                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
+                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+                cornerRadius = CornerRadius(6.dp.toPx())
+            )
+            // Tint with player color
+            drawRoundRect(
                 color = neon.copy(alpha = 0.2f),
                 topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
-                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx())
+                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+                cornerRadius = CornerRadius(6.dp.toPx())
             )
         }
 
         // Color starting cell
         val startCell = LudoCoordinates.TRACK[LudoCoordinates.START_INDEXES[color]!!]
-        drawRect(
+        drawRoundRect(
             color = neon.copy(alpha = 0.6f),
-            topLeft = Offset(startCell.col * cellSize, startCell.row * cellSize),
-            size = Size(cellSize, cellSize)
+            topLeft = Offset(startCell.col * cellSize + 2.dp.toPx(), startCell.row * cellSize + 2.dp.toPx()),
+            size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+            cornerRadius = CornerRadius(6.dp.toPx())
         )
     }
 
-    // 2. Draw Center home area
-    val cx = 7.5f * cellSize
-    val cy = 7.5f * cellSize
-
-    // Center background
-    drawRect(
-        color = Color(0xFF1A1F26),
-        topLeft = Offset(6 * cellSize, 6 * cellSize),
-        size = Size(3 * cellSize, 3 * cellSize)
+    // 2. Draw Center home area (The crystal structure in image)
+    val basePos = 6 * cellSize
+    val centerSize = 3 * cellSize
+    
+    drawRoundRect(
+        color = Color(0xFF141926),
+        topLeft = Offset(basePos, basePos),
+        size = Size(centerSize, centerSize),
+        cornerRadius = CornerRadius(8.dp.toPx())
     )
+    
+    // Crystal base accents
+    LudoColor.entries.forEach { color ->
+        val neon = color.toNeonColor()
+        // Simple triangle accents pointing to center
+    }
 }
 
 private fun DrawScope.drawDome(cellSize: Float, pulseAlpha: Float) {
@@ -359,6 +385,14 @@ private fun DrawScope.drawSafeZones(cellSize: Float) {
         val cx = cell.col * cellSize + cellSize / 2f
         val cy = cell.row * cellSize + cellSize / 2f
 
+        // Draw track cell background first
+        drawRoundRect(
+            color = Color(0xFF242B38),
+            topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
+            size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+            cornerRadius = CornerRadius(6.dp.toPx())
+        )
+
         // Draw a glowing diamond/star in safe cells
         val starSize = cellSize * 0.3f
         val path = Path().apply {
@@ -374,6 +408,18 @@ private fun DrawScope.drawSafeZones(cellSize: Float) {
         }
         drawPath(path, Color(0xFF00E5FF).copy(alpha = 0.6f))
         drawPath(path, Color(0xFF00E5FF), style = Stroke(width = 1.dp.toPx()))
+    }
+    
+    // Draw remaining track cells
+    LudoCoordinates.TRACK.forEachIndexed { idx, cell ->
+        if (idx !in LudoCoordinates.SAFE_ZONE_INDEXES && idx !in LudoColor.entries.map { LudoCoordinates.START_INDEXES[it]!! }) {
+             drawRoundRect(
+                color = Color(0xFF242B38),
+                topLeft = Offset(cell.col * cellSize + 2.dp.toPx(), cell.row * cellSize + 2.dp.toPx()),
+                size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+                cornerRadius = CornerRadius(6.dp.toPx())
+            )
+        }
     }
 }
 
