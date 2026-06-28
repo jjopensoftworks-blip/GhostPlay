@@ -3,7 +3,6 @@ package com.example.ghostplay.ui.screens.ludo
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -199,28 +198,17 @@ fun LudoBoard2D(
     }
 }
 
-// Rename 3D call to 2D in other files if needed, but for now let's just make it 2D
 @Composable
 fun LudoBoard3D(
     boardState: LudoBoardState,
     onTokenClick: (LudoToken) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    LudoBoard2D(
+        boardState = boardState,
+        onTokenClick = onTokenClick,
         modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .graphicsLayer {
-                rotationX = 25f
-                cameraDistance = 12f * density
-            }
-    ) {
-        LudoBoard2D(
-            boardState = boardState,
-            onTokenClick = onTokenClick,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
+    )
 }
 
 // Draw basic grid backgrounds

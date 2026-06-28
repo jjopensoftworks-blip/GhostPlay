@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +59,7 @@ fun LudoScreen(
     // Automatically trigger invite challenge mockup after 5 seconds in INVITES tab
     LaunchedEffect(activeSubTab) {
         if (activeSubTab == "INVITES" && !showChallengeNotification) {
-            delay(5000)
+            delay(5000.milliseconds)
             challengerName = "GhostMaster99"
             showChallengeNotification = true
         }
@@ -569,7 +570,6 @@ fun LudoGameplayView(
     val board = lobby.boardState
     val isMyTurn = !viewModel.isOnlineMode.value || (board.currentPlayer == viewModel.myPlayerColor.value)
     
-    val scope = rememberCoroutineScope()
     var isDiceRolling by remember { mutableStateOf(false) }
     var displayedRollNumber by remember { mutableStateOf(1) }
 
@@ -759,23 +759,47 @@ fun LudoGameplayView(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                if (!board.diceRolled && isMyTurn) {
-                    Button(
-                        onClick = { viewModel.rollDice() },
-                        modifier = Modifier
-                            .fillMaxWidth(0.6f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF).copy(alpha = 0.2f)),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF00E5FF), Color(0xFF00FF9D))))
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Casino, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("ROLL", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Black)
+                val canRoll = !board.diceRolled && isMyTurn
+                Button(
+                    onClick = { viewModel.rollDice() },
+                    enabled = canRoll,
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(48.dp)
+                        .alpha(if (canRoll) 1f else 0.5f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00E5FF).copy(alpha = 0.2f),
+                        disabledContainerColor = Color.Gray.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(
+                        width = 2.dp,
+                        brush = if (canRoll) {
+                            Brush.linearGradient(listOf(Color(0xFF00E5FF), Color(0xFF00FF9D)))
+                        } else {
+                            SolidColor(Color.Gray.copy(alpha = 0.3f))
                         }
+                    )
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Casino, 
+                            contentDescription = null, 
+                            tint = if (canRoll) Color.White else Color.Gray, 
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "ROLL", 
+                            style = MaterialTheme.typography.titleMedium, 
+                            color = if (canRoll) Color.White else Color.Gray, 
+                            fontWeight = FontWeight.Black
+                        )
                     }
-                } else {
+                }
+
+                if (!canRoll) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     val statusText = if (isMyTurn) "SELECT PIECE" else "WAITING..."
                     Text(
                         text = statusText.uppercase(),
@@ -1032,9 +1056,9 @@ fun LudoInvitesView(
                                 challengeSentPlayer = name
                                 challengeStatusText = "Challenging..."
                                 coroutineScope.launch {
-                                    delay(2000)
+                                    delay(2000.milliseconds)
                                     challengeStatusText = "Accepted!"
-                                    delay(500)
+                                    delay(500.milliseconds)
                                     val players = listOf(
                                         LudoPlayer(id = viewModel.currentUserId, name = viewModel.currentUserName.value, color = LudoColor.RED, isHost = true),
                                         LudoPlayer(id = "FRIEND_99", name = name, color = LudoColor.BLUE, isBot = false)
