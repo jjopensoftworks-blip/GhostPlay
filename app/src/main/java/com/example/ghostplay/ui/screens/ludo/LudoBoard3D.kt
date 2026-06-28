@@ -206,7 +206,21 @@ fun LudoBoard3D(
     onTokenClick: (LudoToken) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LudoBoard2D(boardState, onTokenClick, modifier)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .graphicsLayer {
+                rotationX = 25f
+                cameraDistance = 12f * density
+            }
+    ) {
+        LudoBoard2D(
+            boardState = boardState,
+            onTokenClick = onTokenClick,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 // Draw basic grid backgrounds
@@ -368,49 +382,81 @@ private fun DrawScope.drawDome(cellSize: Float, pulseAlpha: Float) {
     val cy = 7.5f * cellSize
     val radius = 1.3f * cellSize
 
-    // 1. Recessed Shadow
+    // 1. Recessed Metallic Base (Dark Rim)
     drawCircle(
-        color = Color.Black,
+        color = Color(0xFF0F172A),
         center = Offset(cx, cy),
-        radius = radius + 2.dp.toPx()
+        radius = radius + 4.dp.toPx()
+    )
+    drawCircle(
+        color = Color(0xFF00E5FF).copy(alpha = 0.5f),
+        center = Offset(cx, cy),
+        radius = radius + 4.dp.toPx(),
+        style = Stroke(width = 2.dp.toPx())
     )
 
-    // 2. Metallic Orb Body
+    // 2. Glowing base glow
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0xFF8E9AAF), Color(0xFF2F3E46), Color(0xFF0D1117)),
-            center = Offset(cx - radius * 0.3f, cy - radius * 0.3f),
-            radius = radius
-        ),
-        center = Offset(cx, cy),
-        radius = radius
-    )
-    
-    // 3. Chrome Highlight
-    drawCircle(
-        color = Color.White.copy(alpha = 0.2f),
-        center = Offset(cx - radius * 0.4f, cy - radius * 0.4f),
-        radius = radius * 0.3f
-    )
-
-    // 4. Glowing Core
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(Primary.copy(alpha = pulseAlpha + 0.4f), Color.Transparent),
+            colors = listOf(Color(0xFF00E5FF).copy(alpha = 0.3f), Color.Transparent),
             center = Offset(cx, cy),
-            radius = radius * 0.8f
+            radius = radius * 1.5f
         ),
         center = Offset(cx, cy),
-        radius = radius * 0.8f
+        radius = radius * 1.5f
     )
+
+    // 3. Draw Vertical Crystal Obelisk Core (Faceted structure)
+    val cw = cellSize * 0.6f
+    val ch = cellSize * 1.3f
+    val time = System.currentTimeMillis() / 150f
+    val pulseHeight = ch + Math.sin(time.toDouble()).toFloat() * 2.dp.toPx()
+
+    // Outer crystal path
+    val crystalPath = Path().apply {
+        moveTo(cx, cy - pulseHeight / 2) // Top apex
+        lineTo(cx + cw / 2, cy - pulseHeight * 0.1f) // Right edge
+        lineTo(cx + cw / 2, cy + pulseHeight * 0.3f) // Right base
+        lineTo(cx, cy + pulseHeight / 2) // Bottom base
+        lineTo(cx - cw / 2, cy + pulseHeight * 0.3f) // Left base
+        lineTo(cx - cw / 2, cy - pulseHeight * 0.1f) // Left edge
+        close()
+    }
     
-    // 5. Orbital Ring
-    drawCircle(
-        color = Primary.copy(alpha = 0.6f),
-        center = Offset(cx, cy),
-        radius = radius,
+    // Draw fill with neon gradient
+    drawPath(
+        path = crystalPath,
+        brush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF00E5FF), // Cyan top
+                Color(0xFF00FF9D).copy(alpha = 0.8f), // Neon green middle
+                Color(0xFFFF2A7A).copy(alpha = 0.6f)  // Pink base
+            )
+        )
+    )
+
+    // Draw central vertical shine facet
+    val shinePath = Path().apply {
+        moveTo(cx, cy - pulseHeight / 2)
+        lineTo(cx + cw * 0.1f, cy - pulseHeight * 0.1f)
+        lineTo(cx + cw * 0.1f, cy + pulseHeight * 0.3f)
+        lineTo(cx, cy + pulseHeight / 2)
+        close()
+    }
+    drawPath(
+        path = shinePath,
+        color = Color.White.copy(alpha = 0.4f)
+    )
+
+    // Draw crystal facets outline
+    drawPath(
+        path = crystalPath,
+        color = Color.White.copy(alpha = 0.8f),
         style = Stroke(width = 1.5.dp.toPx())
     )
+
+    // Facet lines
+    drawLine(Color.White.copy(alpha = 0.6f), Offset(cx, cy - pulseHeight / 2), Offset(cx, cy + pulseHeight / 2), 1.dp.toPx())
 }
 
 // Draw star markings on safe zones

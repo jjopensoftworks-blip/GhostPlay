@@ -77,20 +77,18 @@ fun LudoDiceView(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(12.dp))
-                .border(2.dp, color.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .border(2.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
         ) {
             val diceSize = this.size.width
             
-            // Background with gradient for 3D look
+            // White gradient for premium 3D look
             drawRoundRect(
-                brush = Brush.linearGradient(
+                brush = Brush.verticalGradient(
                     colors = listOf(
-                        color.copy(alpha = 0.2f),
-                        color.copy(alpha = 0.05f),
-                        color.copy(alpha = 0.2f)
-                    ),
-                    start = Offset.Zero,
-                    end = Offset(diceSize, diceSize)
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF1F5F9),
+                        Color(0xFFE2E8F0)
+                    )
                 ),
                 size = this.size,
                 cornerRadius = CornerRadius(12.dp.toPx())
@@ -107,17 +105,10 @@ private fun DrawScope.drawDiceDots(number: Int, size: Float, color: Color) {
     val margin = size * 0.25f
     val center = size / 2f
     
-    val dotColor = Color.White
-    val glowColor = color.copy(alpha = 0.8f)
+    val dotColor = Color(0xFF1E293B) // Dark Slate for black dots
 
     fun drawDot(x: Float, y: Float) {
-        // Outer glow
-        drawCircle(
-            color = glowColor,
-            radius = dotRadius * 1.5f,
-            center = Offset(x, y)
-        )
-        // Inner dot
+        // Draw crisp dot
         drawCircle(
             color = dotColor,
             radius = dotRadius,

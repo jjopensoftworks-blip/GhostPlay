@@ -15,10 +15,16 @@ import kotlinx.coroutines.tasks.await
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
-class LudoViewModel : ViewModel() {
+import com.example.ghostplay.data.repository.UserPreferencesRepository
+
+class LudoViewModel(private val userPrefs: UserPreferencesRepository) : ViewModel() {
 
     private val _lobbyState = MutableStateFlow<LudoLobby?>(null)
     val lobbyState = _lobbyState.asStateFlow()
+
+    fun setLobby(lobby: LudoLobby?) {
+        _lobbyState.value = lobby
+    }
 
     val isOnlineMode = mutableStateOf(false)
     val lobbyCode = mutableStateOf("")
@@ -28,10 +34,15 @@ class LudoViewModel : ViewModel() {
     val currentUserId = "USER_${Random.nextInt(1000, 9999)}"
     val currentUserName = mutableStateOf("Player_$currentUserId")
 
+    // Disconnect & Auto-Bot Takeover states
+    val disconnectCountdown = mutableStateOf<Int?>(null)
+    val disconnectedPlayerColor = mutableStateOf<LudoColor?>(null)
+
     private var firestore: FirebaseFirestore? = null
     private var lobbyListenerRegistration: ListenerRegistration? = null
     private var botJob: Job? = null
     private var timerJob: Job? = null
+    private var disconnectJob: Job? = null
     
     // Stats for rules
     private var consecutiveSixes = 0
@@ -43,6 +54,15 @@ class LudoViewModel : ViewModel() {
         } catch (e: Exception) {
             Log.e("LudoViewModel", "Firestore not available: ${e.message}")
             firestore = null
+        }
+
+        // Load the locked username from preferences repository
+        viewModelScope.launch {
+            userPrefs.userName.collect { name ->
+                if (name != null) {
+                    currentUserName.value = name
+                }
+            }
         }
     }
 
@@ -76,6 +96,7 @@ class LudoViewModel : ViewModel() {
     }
 
     private fun endGameTracking(lobby: LudoLobby, winners: List<LudoColor>): LudoLobby {
+        saveStructuredGameSession(lobby, winners)
         return lobby.copy(
             endTime = System.currentTimeMillis(),
             firstWinner = winners.getOrNull(0),
@@ -84,7 +105,101 @@ class LudoViewModel : ViewModel() {
         )
     }
 
-    fun setupLocalGame(playerCount: Int, botCount: Int) {
+    private fun saveStructuredGameSession(lobby: LudoLobby, winners: List<LudoColor>) {
+        val db = firestore ?: return
+        val sessionId = "GP_LUDO_2026_${Random.nextInt(10000, 99999)}A"
+        
+        val mode = if (isOnlineMode.value) "PVP" else "BOT"
+        val difficulty = if (mode == "BOT") lobby.aiDifficulty else null
+        
+        val startMillis = lobby.startTime ?: System.currentTimeMillis()
+        val endMillis = System.currentTimeMillis()
+        val durationSecs = (endMillis - startMillis) / 1000
+        
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val startTimeStr = sdf.format(java.util.Date(startMillis))
+        val endTimeStr = sdf.format(java.util.Date(endMillis))
+        
+        val playersData = lobby.players.map { player ->
+            val status = when (player.color) {
+                winners.getOrNull(0) -> "Winner"
+                winners.getOrNull(1) -> "Runner_Up"
+                disconnectedPlayerColor.value -> "Forfeited"
+                else -> "Defeated"
+            }
+            mapOf(
+                "username" to player.name,
+                "color" to player.color.name,
+                "status" to status
+            )
+        }
+        
+        val sessionData = mapOf(
+            "game_session" to mapOf(
+                "session_id" to sessionId,
+                "game_type" to "Ludo",
+                "matchmaking_mode" to mode,
+                "ai_difficulty" to difficulty,
+                "timestamps" to mapOf(
+                    "start_time" to startTimeStr,
+                    "end_time" to endTimeStr,
+                    "total_duration_seconds" to durationSecs
+                ),
+                "players" to playersData,
+                "session_status" to if (disconnectedPlayerColor.value != null) "Forfeited" else "Completed"
+            )
+        )
+        
+        viewModelScope.launch {
+            try {
+                db.collection("game_sessions").document(sessionId).set(sessionData)
+            } catch (e: Exception) {
+                Log.e("LudoViewModel", "Failed to log structured game session: ${e.message}")
+            }
+        }
+    }
+
+    fun simulateNetworkDisconnect() {
+        val lobby = _lobbyState.value ?: return
+        if (lobby.status != "PLAYING") return
+        val humanPlayers = lobby.players.filter { !it.isBot && it.id != currentUserId }
+        if (humanPlayers.isEmpty()) return
+        
+        val target = humanPlayers.random()
+        disconnectedPlayerColor.value = target.color
+        
+        disconnectJob?.cancel()
+        disconnectJob = viewModelScope.launch {
+            for (seconds in 45 downTo 0) {
+                disconnectCountdown.value = seconds
+                delay(1000)
+            }
+            // Timeout: takeover with bot
+            disconnectCountdown.value = null
+            triggerBotTakeover(target.color)
+        }
+    }
+
+    private fun triggerBotTakeover(color: LudoColor) {
+        val lobby = _lobbyState.value ?: return
+        val updatedPlayers = lobby.players.map { player ->
+            if (player.color == color) {
+                player.copy(isBot = true, name = "BOT_${color.name} (Medium)")
+            } else player
+        }
+        val logs = lobby.boardState.logs + "[DISCONNECT] ${color.name} CONNECTIVITY TIMEOUT. BOT TOOK OVER CONTROL."
+        val updatedLobby = lobby.copy(
+            players = updatedPlayers,
+            boardState = lobby.boardState.copy(logs = logs),
+            aiDifficulty = "Medium"
+        )
+        updateLobbyOnServer(updatedLobby)
+        disconnectedPlayerColor.value = null
+    }
+
+    fun setupLocalGame(playerCount: Int, botCount: Int, difficulty: String = "Medium") {
         isOnlineMode.value = false
         lobbyCode.value = "LOCAL"
         
@@ -126,6 +241,7 @@ class LudoViewModel : ViewModel() {
             status = "PLAYING",
             hostId = currentUserId,
             players = playersList,
+            aiDifficulty = difficulty,
             boardState = LudoBoardState(
                 currentPlayer = LudoColor.RED,
                 logs = listOf("LOCAL_MATCH_INITIATED", "RED_PLAYER_TURN")
@@ -679,7 +795,32 @@ class LudoViewModel : ViewModel() {
         allTokens: List<LudoToken>,
         roll: Int
     ): LudoToken {
-        // Priority 1: Captures an opponent
+        val lobby = _lobbyState.value ?: return validTokens.random()
+        val diff = lobby.aiDifficulty ?: "Medium"
+        
+        // 1. Easy Mode: 80% chance of random moves. Never targets player pawns.
+        if (diff == "Easy") {
+            if (Random.nextFloat() > 0.2f) {
+                return validTokens.random()
+            }
+            // Non-aggressive move: prioritises base release or moving furthest token
+            if (roll == 6) {
+                validTokens.find { it.positionType == TokenPositionType.BASE }?.let { return it }
+            }
+            val furthest = validTokens.maxByOrNull { getDistanceTraveled(it) }
+            if (furthest != null) return furthest
+            return validTokens.random()
+        }
+
+        // 2. Medium Mode: 40% chance of random moves, 60% strategic
+        if (diff == "Medium") {
+            if (Random.nextFloat() > 0.6f) {
+                return validTokens.random()
+            }
+        }
+
+        // 3. Hard Mode / Strategic Medium choice:
+        // Priority 1: Captures an opponent (Highly aggressive targeting)
         validTokens.forEach { token ->
             val path = getTraversedPath(token, roll)
             if (path.isNotEmpty() && path.last().first == TokenPositionType.TRACK) {
@@ -704,23 +845,25 @@ class LudoViewModel : ViewModel() {
         }
 
         // Priority 4: Moves token closest to finishing (furthest track or home stretch index)
-        val furthestToken = validTokens.maxByOrNull { token ->
-            when (token.positionType) {
-                TokenPositionType.HOME_STRETCH -> 100 + token.positionIndex
-                TokenPositionType.TRACK -> {
-                    // Calculate distance traveled relative to start index
-                    val start = LudoCoordinates.START_INDEXES[token.color]!!
-                    val current = token.positionIndex
-                    val distance = (current - start + 52) % 52
-                    distance
-                }
-                else -> 0
-            }
-        }
+        val furthestToken = validTokens.maxByOrNull { getDistanceTraveled(it) }
         if (furthestToken != null) return furthestToken
 
         // Fallback: Random choice
         return validTokens.random()
+    }
+
+    private fun getDistanceTraveled(token: LudoToken): Int {
+        return when (token.positionType) {
+            TokenPositionType.HOME_STRETCH -> 100 + token.positionIndex
+            TokenPositionType.TRACK -> {
+                // Calculate distance traveled relative to start index
+                val start = LudoCoordinates.START_INDEXES[token.color]!!
+                val current = token.positionIndex
+                val distance = (current - start + 52) % 52
+                distance
+            }
+            else -> 0
+        }
     }
 
     fun cleanupLobby() {

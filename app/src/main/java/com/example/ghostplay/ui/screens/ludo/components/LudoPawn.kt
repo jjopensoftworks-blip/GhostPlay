@@ -40,10 +40,20 @@ object LudoPawn {
         
         val tx = cx
         val ty = cy - hopOffset - floatOffset
+        val radius = cellSize * 0.42f
 
         with(drawScope) {
-            // 1. Dust/Sparkle Trail for Moving
-            if (animState == PawnAnimationState.MOVING && hop > 0.5f) {
+            // 1. Dust/Sparkle Trail for Moving + Neon Shockwave Ripple
+            if (animState == PawnAnimationState.MOVING) {
+                // Expanding neon shockwave ripple ring
+                val rippleRadius = cellSize * 0.7f * (hop % 1f)
+                drawCircle(
+                    color = color.copy(alpha = 1f - (hop % 1f)),
+                    radius = rippleRadius,
+                    center = Offset(cx, cy),
+                    style = Stroke(1.5.dp.toPx())
+                )
+                
                 drawCircle(
                     brush = Brush.radialGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent)),
                     radius = cellSize * 0.4f * hop,
@@ -59,14 +69,57 @@ object LudoPawn {
                 size = Size(shadowRadius * 2f, shadowRadius * 1f)
             )
 
+            // 3. Comedic Dizzy Stars over head when captured
+            if (animState == PawnAnimationState.CAPTURED) {
+                val time = System.currentTimeMillis() / 150f
+                val orbitRadius = radius * 0.5f
+                for (i in 0..2) {
+                    val angle = time + (i * 2 * Math.PI / 3)
+                    val starX = tx + Math.cos(angle).toFloat() * orbitRadius
+                    val starY = ty - radius * 1.5f + Math.sin(angle * 0.5).toFloat() * (orbitRadius * 0.3f)
+                    
+                    // Draw a tiny yellow star
+                    drawCircle(
+                        color = Color(0xFFFFE500),
+                        radius = 3.dp.toPx(),
+                        center = Offset(starX, starY)
+                    )
+                }
+            }
+
+            // 4. Comedic Oversized Hammer Swing on Victory/Elimination
+            if (animState == PawnAnimationState.VICTORY) {
+                val swingTime = System.currentTimeMillis() / 100f
+                val angle = 30f + Math.sin(swingTime.toDouble()).toFloat() * 30f
+                
+                withTransform({
+                    translate(tx, ty - radius * 1.2f)
+                    rotate(angle, Offset.Zero)
+                    translate(-tx, -(ty - radius * 1.2f))
+                }) {
+                    // Hammer Handle (Brown Wood)
+                    drawLine(
+                        color = Color(0xFF8B5A2B),
+                        start = Offset(tx, ty - radius * 1.2f),
+                        end = Offset(tx, ty - radius * 2.5f),
+                        strokeWidth = 3.5.dp.toPx()
+                    )
+                    // Hammer Head (Grey Comedic Block)
+                    drawRoundRect(
+                        color = Color(0xFF64748B),
+                        topLeft = Offset(tx - radius * 0.7f, ty - radius * 2.8f),
+                        size = Size(radius * 1.4f, radius * 0.6f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
+                    )
+                }
+            }
+
             withTransform({
                 translate(tx, ty)
                 scale(scale, scale, Offset.Zero)
                 rotate(rotation, Offset.Zero)
                 translate(-tx, -ty)
             }) {
-                val radius = cellSize * 0.42f // Scaled up to fit the larger cells
-                
                 // Danger aura
                 if (animState == PawnAnimationState.DANGER) {
                     drawCircle(
@@ -98,6 +151,16 @@ object LudoPawn {
     }
 
     private fun DrawScope.drawRobot(tx: Float, ty: Float, radius: Float, color: Color, state: PawnAnimationState, arms: Float) {
+        val time = System.currentTimeMillis() / 150f
+        
+        // Comical Foot Tapping when waiting idle
+        val leftTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble()).toFloat() > 0.6f) 3.dp.toPx() else 0f
+        val rightTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble() + 1.5).toFloat() > 0.6f) 3.dp.toPx() else 0f
+
+        // Draw Feet
+        drawCircle(Color.Black.copy(alpha = 0.5f), radius * 0.2f, Offset(tx - radius * 0.4f, ty + radius * 0.9f - leftTap))
+        drawCircle(Color.Black.copy(alpha = 0.5f), radius * 0.2f, Offset(tx + radius * 0.4f, ty + radius * 0.9f - rightTap))
+
         // Body
         drawRoundRect(
             brush = Brush.verticalGradient(listOf(color, color.copy(alpha = 0.7f))),
@@ -125,6 +188,14 @@ object LudoPawn {
     }
 
     private fun DrawScope.drawAstronaut(tx: Float, ty: Float, radius: Float, color: Color, state: PawnAnimationState, arms: Float) {
+        val time = System.currentTimeMillis() / 150f
+        val leftTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble()).toFloat() > 0.6f) 3.dp.toPx() else 0f
+        val rightTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble() + 1.5).toFloat() > 0.6f) 3.dp.toPx() else 0f
+
+        // Draw Boots
+        drawCircle(Color.LightGray, radius * 0.2f, Offset(tx - radius * 0.35f, ty + radius * 0.9f - leftTap))
+        drawCircle(Color.LightGray, radius * 0.2f, Offset(tx + radius * 0.35f, ty + radius * 0.9f - rightTap))
+
         // Suit
         drawCircle(Color.White, radius * 0.9f, Offset(tx, ty - radius * 0.3f))
         drawRoundRect(Color.White, Offset(tx - radius * 0.7f, ty), Size(radius * 1.4f, radius * 1.2f), androidx.compose.ui.geometry.CornerRadius(radius * 0.5f))
@@ -139,6 +210,14 @@ object LudoPawn {
     }
 
     private fun DrawScope.drawKid(tx: Float, ty: Float, radius: Float, color: Color, state: PawnAnimationState, arms: Float) {
+        val time = System.currentTimeMillis() / 150f
+        val leftTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble()).toFloat() > 0.6f) 3.dp.toPx() else 0f
+        val rightTap = if (state == PawnAnimationState.IDLE && Math.sin(time.toDouble() + 1.5).toFloat() > 0.6f) 3.dp.toPx() else 0f
+
+        // Draw Shoes
+        drawCircle(Color.Black, radius * 0.18f, Offset(tx - radius * 0.3f, ty + radius * 0.9f - leftTap))
+        drawCircle(Color.Black, radius * 0.18f, Offset(tx + radius * 0.3f, ty + radius * 0.9f - rightTap))
+
         // Suit
         drawCircle(color, radius, Offset(tx, ty))
         // Face

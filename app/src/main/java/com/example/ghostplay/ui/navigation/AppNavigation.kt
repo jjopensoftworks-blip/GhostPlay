@@ -63,12 +63,6 @@ fun AppNavigation() {
                     label = { Text("GRID") }
                 )
                 item(
-                    selected = false,
-                    onClick = { },
-                    icon = { Icon(Icons.Rounded.Hub, contentDescription = "NETWORK") },
-                    label = { Text("NETWORK") }
-                )
-                item(
                     selected = currentDestination is Route.Dashboard,
                     onClick = { 
                         currentDestination = Route.Dashboard
@@ -77,12 +71,6 @@ fun AppNavigation() {
                     },
                     icon = { Icon(Icons.Rounded.BarChart, contentDescription = "LOGS") },
                     label = { Text("LOGS") }
-                )
-                item(
-                    selected = false,
-                    onClick = { },
-                    icon = { Icon(Icons.Rounded.SettingsInputComponent, contentDescription = "CONFIG") },
-                    label = { Text("CONFIG") }
                 )
             }
         ) {

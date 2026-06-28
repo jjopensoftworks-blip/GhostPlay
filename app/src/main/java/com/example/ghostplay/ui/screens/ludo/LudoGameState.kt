@@ -72,7 +72,8 @@ data class LudoLobby(
     val startTime: Long? = null,
     val endTime: Long? = null,
     val firstWinner: LudoColor? = null,
-    val secondWinner: LudoColor? = null
+    val secondWinner: LudoColor? = null,
+    val aiDifficulty: String? = null
 )
 
 object LudoCoordinates {

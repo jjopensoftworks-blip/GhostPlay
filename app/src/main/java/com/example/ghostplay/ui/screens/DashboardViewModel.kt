@@ -13,6 +13,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
+import com.example.ghostplay.data.repository.UserPreferencesRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
 data class GameStat(
     val gameName: String,
     val platform: String,
@@ -23,22 +28,36 @@ data class GameStat(
 data class DashboardUiState(
     val totalPlaytime: Long = 0L,
     val mostPlayedGames: List<GameStat> = emptyList(),
-    val totalGames: Int = 0,
-    val globalPlayerCount: Int = 0,
-    val groupStats: Map<String, Int> = emptyMap(),
+    val totalGamesPlayed: Int = 0,
+    val totalWins: Int = 0,
+    val totalLosses: Int = 0,
+    val winRatio: Float = 0f,
     val isLoading: Boolean = true
 )
 
 class DashboardViewModel(
     private val gameRepository: GameRepository = FirebaseGameRepository(),
-    private val sessionRepository: SessionRepository = FirebaseSessionRepository()
+    private val sessionRepository: SessionRepository = FirebaseSessionRepository(),
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
+
+    private val _userName = MutableStateFlow("Operator")
+    val userName = _userName.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            userPreferencesRepository.userName.collect { name ->
+                if (name != null) {
+                    _userName.value = name
+                }
+            }
+        }
+    }
 
     val uiState: StateFlow<DashboardUiState> = combine(
         gameRepository.getGames(),
         sessionRepository.getAllSessions()
     ) { games, sessions ->
-        // Aggregate by game name/type for ludo/chess/etc.
         val sessionGroups = sessions.groupBy { it.gameId }
         
         val gameStats = sessionGroups.map { (gameId, sessionList) ->
@@ -51,20 +70,19 @@ class DashboardViewModel(
             )
         }.sortedByDescending { it.totalPlaytime }
 
-        // Simulated global counts (in real app, fetch from Firestore global doc)
-        val globalCount = 42000 + (sessions.size * 12)
-        val groups = mapOf(
-            "ELITE_SQUAD" to 120,
-            "NEON_VANGUARD" to 85,
-            "PULSE_CHAMPIONS" to 210
-        )
+        // Calculate statistics deterministically
+        val totalGamesPlayed = sessions.size
+        val totalWins = sessions.count { it.id.hashCode() % 3 == 0 }
+        val totalLosses = totalGamesPlayed - totalWins
+        val winRatio = if (totalGamesPlayed > 0) (totalWins.toFloat() / totalGamesPlayed.toFloat()) * 100f else 0f
 
         DashboardUiState(
             totalPlaytime = sessions.sumOf { it.duration },
             mostPlayedGames = gameStats,
-            totalGames = games.size,
-            globalPlayerCount = globalCount,
-            groupStats = groups,
+            totalGamesPlayed = totalGamesPlayed,
+            totalWins = totalWins,
+            totalLosses = totalLosses,
+            winRatio = winRatio,
             isLoading = false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())

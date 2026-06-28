@@ -35,24 +35,24 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
-                text = "NEON_IDENTITY_SETUP",
+                text = "GhostPlay",
                 style = MaterialTheme.typography.displayMedium,
                 color = Primary,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 32.sp
+                fontSize = 36.sp
             )
             
             Text(
-                text = "ESTABLISH PLAYER_TAG FOR THE NETWORK",
-                style = MaterialTheme.typography.labelMedium,
+                text = "Create your username (cannot be changed later)",
+                style = MaterialTheme.typography.bodyMedium,
                 color = OnSurfaceVariant,
-                letterSpacing = 2.sp
+                letterSpacing = 0.5.sp
             )
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { if (!isInitializing) name = it },
-                label = { Text("PLAYER_TAG", style = MaterialTheme.typography.labelSmall) },
+                label = { Text("Username", style = MaterialTheme.typography.labelSmall) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -94,7 +94,7 @@ fun OnboardingScreen(
                     )
                 } else {
                     Text(
-                        text = "INITIATE_SESSION",
+                        text = "LET'S PLAY",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
